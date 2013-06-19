@@ -1,17 +1,3 @@
-function Ctor(Parent, memberInit) {
-  if (!memberInit) {
-    memberInit = Parent;
-    Parent = function(){};
-  }
-  var F = function(c) {
-    if (this.init && c !== Ctor) {
-      this.init.apply(this, arguments);
-    }
-  }
-  memberInit.call(F.prototype = new Parent(Ctor), Parent.prototype);
-  return F;
-}
-
 ko.utils.IdentityMap = function() {
   this.find = function(id, params) {
     return $.grep(this, function(d) {
@@ -36,39 +22,51 @@ ko.utils.unescapeHtml = function(str) {
   }
 };
 
-ko.Model = Ctor(function() {
+var __equalityComparer = function(a, b) {
+var primitiveTypes = ['undefined', 'boolean', 'number', 'string'],
+    _ref = typeof a;
 
-  var __urls = {},__defaults = {},__transientParameters = [],__afterHooks = {},__cacheContainer = new ko.utils.IdentityMap(),__backup = {};
-
-  var __equalityComparer = function(a, b) {
-    var primitiveTypes = ['undefined', 'boolean', 'number', 'string'],
-        _ref = typeof a;
-    
     if ((a === null) || primitiveTypes.indexOf(_ref) >= 0) {
       return a === b;
     } else {
       return false;
     }
-  };
+};
 
-  this.init = function() {
+
+Model = function() {
+    var __transientParameters = [],
+        __cacheContainer = new ko.utils.IdentityMap();
+
+    this.__backup = {};
+    this.__urls = this.__urls || {};
+
+    this.initialize.apply(this, arguments);
+
     var i, item;
-    this.__urls = __urls;
+
     for (i in this) {
-      if (!this.hasOwnProperty(i)) continue;
-      item = this[i];
-      if (i !== "__urls") {
-        if (ko.isObservable(this[i])) {
-          this[i].equalityComparer = __equalityComparer;
+        if (!this.hasOwnProperty(i)) continue;
+
+        item = this[i];
+        if (i !== "__urls") {
+            if (ko.isObservable(this[i])) {
+                this[i].equalityComparer = __equalityComparer;
+            }
         }
-        __defaults[i] = this.get(i);
-      }
     }
-  }
+};
 
-  this.__urls = {};
+$.extend(Model.prototype, {
+    initialize: function() {},
 
-  this.addRoute = function(id, href, isStatic) {
+  __urls: {},
+
+  __afterHooks: {},
+
+  __defaults: {},
+
+  addRoute: function(id, href, isStatic) {
     if (isStatic == null) {
       isStatic = true;
     }
@@ -76,13 +74,11 @@ ko.Model = Ctor(function() {
     if (isStatic === true) {
       return __urls[id] = href;
     }
-  };
+  },
 
-  this.get = function(attr) {
-    return ko.utils.unwrapObservable(this[attr]);
-  };
+  get: function(attr) { return ko.utils.unwrapObservable(this[attr]); },
 
-  this.set = function(args) {
+  set: function(args) {
     var i, item, new_value, obj;
     obj = this;
     for (i in args) {
@@ -98,9 +94,174 @@ ko.Model = Ctor(function() {
       }
     }
     return obj;
-  };
+  },
 
-  this.doPost = function(routeName, params, callback, type) {
+  createCollection: function(data, callback) {
+    var collection, item, obj, _i, _len;
+    collection = [];
+    for (_i = 0, _len = data.length; _i < _len; _i++) {
+      item = data[_i];
+      obj = new this;
+      if (typeof callback === "function") {
+        obj.set(callback(item));
+      } else {
+        obj.set(item);
+      }
+      collection.push(obj);
+    }
+    return collection;
+  },
+
+  clear: function() { return this.set(this.__defaults); },
+
+  refresh: function(callback) {
+    return this.show(function(data) {
+      if (data.status === "SUCCESS") {
+        this.set(data);
+      }
+      if (typeof callback === "function") {
+        return callback(data);
+      }
+    });
+  },
+
+  toJSON: function(options) { return ko.toJSON(this.clone(options)); },
+
+  toJS: function(options) { return ko.toJS(this.clone(options)); },
+
+  clone: function(args) {
+    var i, param, temp, transientAttributes, _i, _len, _ref;
+    if (args == null) {
+      args = {};
+    }
+    transientAttributes = {
+      '__urls': false
+    };
+    _ref = __transientParameters;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      param = _ref[_i];
+      transientAttributes[param] = false;
+    }
+    args = $.extend(transientAttributes, args);
+    temp = {};
+    for (i in this) {
+      if (!this.hasOwnProperty(i)) continue;
+      if (args[i] === true || args[i] === void 0) {
+        temp[i] = this.get(i);
+      }
+    }
+    return temp;
+  },
+
+  backup: function() { return this.__backup = this.toJS(); },
+
+  restore: function() {
+    this.set(this.__backup);
+    __backup = {};
+    return this;
+  },
+
+  start_transaction: function() {
+    var i, item, _results;
+    _results = [];
+    for (i in this) {
+      if (!this.hasOwnProperty(i)) continue;
+      item = this[i];
+      if (typeof this[i].equalityComparer === "function") {
+        _results.push(this[i].equalityComparer = function() {
+          return true;
+        });
+      } else {
+        _results.push(void 0);
+      }
+    }
+    return _results;
+  },
+
+  commit: function() {
+    var i, item, _results;
+    _results = [];
+    for (i in this) {
+      if (!this.hasOwnProperty(i)) continue;
+      item = this[i];
+      if (typeof this[i].equalityComparer === "function") {
+        this[i].equalityComparer = __equalityComparer;
+        if (typeof this[i].valueHasMutated === "function") {
+          _results.push(this[i].valueHasMutated());
+        } else {
+          _results.push(void 0);
+        }
+      } else {
+        _results.push(void 0);
+      }
+    }
+    return _results;
+  },
+
+  isNew: function() {
+    var value;
+    value = this.get("id");
+    return value === null || value === void 0 || value === "";
+  },
+
+  validate: function() { return true; },
+
+  save: function() {
+    var callback, params, _ref;
+    if (this.validate() === true) {
+      if (this.isNew() === true) {
+        return this.create.apply(this, arguments);
+      } else {
+        return this.update.apply(this, arguments);
+      }
+    } else {
+      _ref = __generate_request_parameters.apply(this, arguments), params = _ref[0], callback = _ref[1];
+      if (typeof callback === "function") {
+        return callback({
+          status: "ERROR",
+          message: "Invalid object"
+        });
+      }
+    }
+  },
+
+  create: function() {
+    var callback, params, _ref;
+    _ref = __generate_request_parameters.apply(this, arguments), params = _ref[0], callback = _ref[1];
+    params = $.extend(params, this.toJS());
+    return this.doPost("create", params, callback);
+  },
+
+  update: function() {
+    var callback, params, _ref;
+    _ref = __generate_request_parameters.apply(this, arguments), params = _ref[0], callback = _ref[1];
+    params = $.extend(params, this.toJS());
+    return this.doPost("update", params, callback);
+  },
+
+  destroy: function() {
+    var callback, params, _ref;
+    _ref = __generate_request_parameters.apply(this, arguments), params = _ref[0], callback = _ref[1];
+    params = $.extend(params, this.toJS());
+    return this.doPost("destroy", params, callback);
+  },
+
+  show: function() {
+    var callback, params, _ref;
+    _ref = __generate_request_parameters.apply(this, arguments), params = _ref[0], callback = _ref[1];
+    params = $.extend(params, {
+      id: this.get("id")
+    });
+    return this.doGet("show", params, callback);
+  },
+
+  index: function() {
+    var callback, params, _ref;
+    _ref = __generate_request_parameters.apply(this, arguments), params = _ref[0], callback = _ref[1];
+    return this.doGet("index", params, callback);
+  },
+
+  doPost: function(routeName, params, callback, type) {
     var url;
     if (params == null) {
       params = {};
@@ -117,9 +278,9 @@ ko.Model = Ctor(function() {
       url = routeName;
     }
     return doPost(url, params, callback, type);
-  };
+  },
 
-  this.doGet = function(routeName, params, callback, type) {
+  doGet: function(routeName, params, callback, type) {
     var url;
     if (params == null) {
       params = {};
@@ -136,7 +297,8 @@ ko.Model = Ctor(function() {
       url = routeName;
     }
     return doGet(url, params, callback, type);
-  };
+  }
+});
 
   var doPost = function(routeName, params, callback, type) {
     var ah, className, url;
@@ -223,145 +385,6 @@ ko.Model = Ctor(function() {
     }
   };
 
-  this.createCollection = function(data, callback) {
-    var collection, item, obj, _i, _len;
-    collection = [];
-    for (_i = 0, _len = data.length; _i < _len; _i++) {
-      item = data[_i];
-      obj = new this;
-      if (typeof callback === "function") {
-        obj.set(callback(item));
-      } else {
-        obj.set(item);
-      }
-      collection.push(obj);
-    }
-    return collection;
-  };
-
-  this.clear = function() {
-    return this.set(__defaults);
-  };
-
-  this.refresh = function(callback) {
-    return this.show(function(data) {
-      if (data.status === "SUCCESS") {
-        this.set(data);
-      }
-      if (typeof callback === "function") {
-        return callback(data);
-      }
-    });
-  };
-
-  this.toJSON = function(options) {
-    return ko.toJSON(this.clone(options));
-  };
-
-  this.toJS = function(options) {
-    return ko.toJS(this.clone(options));
-  };
-
-  this.clone = function(args) {
-    var i, param, temp, transientAttributes, _i, _len, _ref;
-    if (args == null) {
-      args = {};
-    }
-    transientAttributes = {
-      '__urls': false
-    };
-    _ref = __transientParameters;
-    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      param = _ref[_i];
-      transientAttributes[param] = false;
-    }
-    args = $.extend(transientAttributes, args);
-    temp = {};
-    for (i in this) {
-      if (!this.hasOwnProperty(i)) continue;
-      if (args[i] === true || args[i] === void 0) {
-        temp[i] = this.get(i);
-      }
-    }
-    return temp;
-  };
-
-  this.backup = function() {
-    return __backup = this.toJS();
-  };
-
-  this.restore = function() {
-    this.set(__backup);
-    __backup = {};
-    return this;
-  };
-
-  this.start_transaction = function() {
-    var i, item, _results;
-    _results = [];
-    for (i in this) {
-      if (!this.hasOwnProperty(i)) continue;
-      item = this[i];
-      if (typeof this[i].equalityComparer === "function") {
-        _results.push(this[i].equalityComparer = function() {
-          return true;
-        });
-      } else {
-        _results.push(void 0);
-      }
-    }
-    return _results;
-  };
-
-  this.commit = function() {
-    var i, item, _results;
-    _results = [];
-    for (i in this) {
-      if (!this.hasOwnProperty(i)) continue;
-      item = this[i];
-      if (typeof this[i].equalityComparer === "function") {
-        this[i].equalityComparer = __equalityComparer;
-        if (typeof this[i].valueHasMutated === "function") {
-          _results.push(this[i].valueHasMutated());
-        } else {
-          _results.push(void 0);
-        }
-      } else {
-        _results.push(void 0);
-      }
-    }
-    return _results;
-  };
-
-  this.isNew = function() {
-    var value;
-    value = this.get("id");
-    return value === null || value === void 0 || value === "";
-  };
-
-  this.validate = function() {
-    return true;
-  };
-
-  this.save = function() {
-    var callback, params, _ref;
-    if (this.validate() === true) {
-      if (this.isNew() === true) {
-        return this.create.apply(this, arguments);
-      } else {
-        return this.update.apply(this, arguments);
-      }
-    } else {
-      _ref = __generate_request_parameters.apply(this, arguments), params = _ref[0], callback = _ref[1];
-      if (typeof callback === "function") {
-        return callback({
-          status: "ERROR",
-          message: "Invalid object"
-        });
-      }
-    }
-  };
-
   var __generate_request_parameters = function() {
     var callback, params;
     params = {};
@@ -393,42 +416,6 @@ ko.Model = Ctor(function() {
     return link;
   };
 
-  this.create = function() {
-    var callback, params, _ref;
-    _ref = __generate_request_parameters.apply(this, arguments), params = _ref[0], callback = _ref[1];
-    params = $.extend(params, this.toJS());
-    return this.doPost("create", params, callback);
-  };
-
-  this.update = function() {
-    var callback, params, _ref;
-    _ref = __generate_request_parameters.apply(this, arguments), params = _ref[0], callback = _ref[1];
-    params = $.extend(params, this.toJS());
-    return this.doPost("update", params, callback);
-  };
-
-  this.destroy = function() {
-    var callback, params, _ref;
-    _ref = __generate_request_parameters.apply(this, arguments), params = _ref[0], callback = _ref[1];
-    params = $.extend(params, this.toJS());
-    return this.doPost("destroy", params, callback);
-  };
-
-  this.show = function() {
-    var callback, params, _ref;
-    _ref = __generate_request_parameters.apply(this, arguments), params = _ref[0], callback = _ref[1];
-    params = $.extend(params, {
-      id: this.get("id")
-    });
-    return this.doGet("show", params, callback);
-  };
-
-  this.index = function() {
-    var callback, params, _ref;
-    _ref = __generate_request_parameters.apply(this, arguments), params = _ref[0], callback = _ref[1];
-    return this.doGet("index", params, callback);
-  };
-
   var create = function() {
     var callback, params, _ref;
     _ref = this.__generate_request_parameters.apply(this, arguments), params = _ref[0], callback = _ref[1];
@@ -458,4 +445,71 @@ ko.Model = Ctor(function() {
     _ref = this.__generate_request_parameters.apply(this, arguments), params = _ref[0], callback = _ref[1];
     return this.doGet("index", params, callback);
   };
-});
+
+// Helpers - shamelessly ripped from Backbone.js
+// ---------------------------------------------
+
+// Shared empty constructor function to aid in prototype-chain creation.
+var ctor = function(){};
+
+// Helper function to correctly set up the prototype chain, for subclasses.
+// Similar to `goog.inherits`, but uses a hash of prototype properties and
+// class properties to be extended.
+var inherits = function(parent, protoProps, staticProps) {
+    var child;
+
+    // The constructor function for the new subclass is either defined by you
+    // (the "constructor" property in your `extend` definition), or defaulted
+    // by us to simply call the parent's constructor.
+    if (protoProps && protoProps.hasOwnProperty('constructor')) {
+        child = protoProps.constructor;
+    } else {
+        child = function(){ parent.apply(this, arguments); };
+    }
+
+    // Inherit class (static) properties from parent.
+    $.extend(child, parent);
+
+    // Set the prototype chain to inherit from `parent`, without calling
+    // `parent`'s constructor function.
+    ctor.prototype = parent.prototype;
+    child.prototype = new ctor();
+
+    // Add prototype properties (instance properties) to the subclass,
+    // if supplied.
+    if (protoProps) $.extend(child.prototype, protoProps);
+
+    // Add static properties to the constructor function, if supplied.
+    if (staticProps) $.extend(child, staticProps);
+
+    // Correctly set child's `prototype.constructor`.
+    child.prototype.constructor = child;
+
+    // Set a convenience property in case the parent's prototype is needed later.
+    child.__super__ = parent.prototype;
+
+    return child;
+};
+
+// The self-propagating extend function that Backbone classes use.
+var extend = function (protoProps, classProps) {
+    var child = inherits(this, protoProps, classProps);
+    child.extend = this.extend;
+    return child;
+};
+
+Model.extend = extend;
+
+(function(window,document,navigator,jQuery,undefined){
+!function(factory) {
+    // Support two module loading scenarios
+    if (typeof define === 'function' && define['amd']) {
+        // [2] AMD anonymous module
+        define(['jquery', 'knockout'], factory);
+    } else {
+        // [3] No module loader (plain <script> tag) - put directly in global namespace
+        factory(window.jQuery, window.ko);
+    }
+}(function module($, ko) {
+    ko.Model = Model;
+})})(window,document,navigator,window["jQuery"]);

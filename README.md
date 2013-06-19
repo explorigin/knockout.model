@@ -12,7 +12,7 @@ Date: Fri Mar 04 14:00:29 2011 -0300
 
 ## Dependencies:
 * jQuery 1.4.2+
-* Knockout 1.1+
+* Knockout 2.1+
 
 ## Howto
 * Override the __urls attribute to set your RESTful routes
@@ -45,41 +45,42 @@ Date: Fri Mar 04 14:00:29 2011 -0300
 * obj.restore() - Restores all model values saved with obj.backup()
 
 ## Example(see docs for more details):
-    var Employee = Ctor(ko.Model, function(super) { // inheriting KoModel to boost your own models!
-        this.__urls = {
+    var Employee = ko.Model.extend(
+        initialize: function(super) { // inheriting KoModel to boost your own models!
+            this.id = ko.observable("");
+            this.name = ko.observable("John Doe");
+            this.surname = ko.observable("");
+            this.fullname = ko.computed(function() {
+                return this.name() + " " + this.surname();
+            }, this);
+            this.birth_date = ko.observable("");
+            this.address = ko.observable("");
+            this.phone = ko.observable("");
+            this.status = ko.observable("E");
+            this.status_text = ko.computed(function() {
+                 if(this.status() === "E") {
+                    return "enabled";
+                 } else {
+                    return "disabled";
+                 }
+            }, this);
+        },
+
+        // We won't send status_text attribute to the server
+        __transientParameters: ["status_text"],
+
+        // An example of callback for automatically setting the model id after create
+        __afterHooks: {
+            "create": function(response) { this.id(response.id); }
+        },
+
+        __urls: {
             "index": "http://#{window.location.host}/employees",
             "show": "http://#{window.location.host}/employees/:id",
             "create": "http://#{window.location.host}/employees/post",
             "update": "http://#{window.location.host}/employees/put",
             "destroy": "http://#{window.location.host}/employees/delete"
-        }
-
-        // We won't send status_text attribute to the server
-        this.__transientParameters = ["status_text"];
-
-        // An example of callback for automatically setting the model id after create
-        this.__afterHooks: {
-            "create": function(response) {	this.id(response.id) }
-        }
-
-        this.id = ko.observable("");
-        this.name = ko.observable("John Doe");
-        this.surname = ko.observable("");
-        this.fullname = ko.computed(function() {
-            return this.name() + " " + this.surname();
-        }, this);
-        this.birth_date = ko.observable("");
-        this.address = ko.observable("");
-        this.phone = ko.observable("");
-        this.status = ko.observable("E");
-        this.status_text = ko.computed(function() {
-             if(this.status() === "E") {
-                return "enabled"; 
-             } else {   
-                return "disabled";
-             }
-        }, this);
-        super.init.call(this); // if you want the this.__defaults applied to your model instance, call super.init.call(this)
+        },
 
         this.validate = function() {
             return(this.name() !== "" && this.surname() !== "" && this.birth_date() !== "");

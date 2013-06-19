@@ -12,15 +12,19 @@
         <div data-bind="text: fullname"></div>
 </body>
 <script type="text/javascript">
-	var Dude = Ctor(ko.Model, function(sup) {
-		this.name = ko.observable("Foo");
-		this.surname = ko.observable("Bar");
-		this.fullname = ko.computed(function() {
-		        return this.name()+" "+this.surname();
-		},this);
-		sup.init.call(this);
-	});
-	
-	ko.applyBindings(new Dude());
+	var Dude = ko.Model.extend({
+        initialize: function() {
+            this.name = ko.observable("Foo");
+            this.surname = ko.observable("Bar");
+
+            this.fullname = ko.computed(function() {
+                    return this.name() + " " + this.surname();
+            },this);
+        }
+    });
+
+    var d = new Dude();
+
+	ko.applyBindings(d);
 </script>
 </html>
