@@ -45,7 +45,7 @@ Date: Fri Mar 04 14:00:29 2011 -0300
 * obj.restore() - Restores all model values saved with obj.backup()
 
 ## Example(see docs for more details):
-    var Employee = Ctor(KoModel, function(super) { // inheriting KoModel to boost your own models!
+    var Employee = Ctor(ko.Model, function(super) { // inheriting KoModel to boost your own models!
         this.__urls = {
             "index": "http://#{window.location.host}/employees",
             "show": "http://#{window.location.host}/employees/:id",

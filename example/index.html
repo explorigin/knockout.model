@@ -3,7 +3,7 @@
 <head>
     <script type="text/javascript" src="jquery.js"></script>
 	<script type="text/javascript" src="knockout.js"></script>
-	<script type="text/javascript" src="knockout.model.js"></script>
+	<script type="text/javascript" src="../knockout.model.js"></script>
 </head>
 <body>
         Name: <input type="text" data-bind="value: name" /><br/>
@@ -12,7 +12,7 @@
         <div data-bind="text: fullname"></div>
 </body>
 <script type="text/javascript">
-	var Dude = Ctor(KnockoutModel, function(sup) {
+	var Dude = Ctor(ko.Model, function(sup) {
 		this.name = ko.observable("Foo");
 		this.surname = ko.observable("Bar");
 		this.fullname = ko.computed(function() {
@@ -21,6 +21,6 @@
 		sup.init.call(this);
 	});
 	
-	ko.applyBindings(new Dude);
+	ko.applyBindings(new Dude());
 </script>
 </html>

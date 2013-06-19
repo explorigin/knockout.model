@@ -36,7 +36,7 @@ ko.utils.unescapeHtml = function(str) {
   }
 };
 
-var KoModel = Ctor(function() {
+ko.Model = Ctor(function() {
 
   var __urls = {},__defaults = {},__transientParameters = [],__afterHooks = {},__cacheContainer = new ko.utils.IdentityMap(),__backup = {};
 
