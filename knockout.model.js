@@ -164,7 +164,7 @@ var KoModel = Ctor(function() {
       url = this.__parse_url(routeName, params);
     }
     ah = this.__afterHooks;
-    return RQ.add($.post(url, params, function(data) {
+    return $.post(url, params, function(data) {
       try {
         if (typeof ah[routeName] === "function") {
           ah[routeName](data);
@@ -175,7 +175,7 @@ var KoModel = Ctor(function() {
       } catch (error) {
 
       }
-    }, type), ("rq_") + new Date());
+    }, type);
   };
 
   var doGet = function(routeName, params, callback, type) {
@@ -210,7 +210,7 @@ var KoModel = Ctor(function() {
     } else {
       tempParams = $.extend({}, params);
       tempParams["__no_cache"] = new Date().getTime();
-      return RQ.add($.get(url, tempParams, function(data) {
+      return $.get(url, tempParams, function(data) {
         if (isCache === true) {
           cc.push({
             id: "#" + routeName,
@@ -228,7 +228,7 @@ var KoModel = Ctor(function() {
         } catch (error) {
 
         }
-      }, type, ("rq_") + new Date()));
+      });
     }
   };
 

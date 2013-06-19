@@ -12,7 +12,6 @@ Date: Fri Mar 04 14:00:29 2011 -0300
 
 ## Dependencies:
 * jQuery 1.4.2+
-* reqman.js at https://github.com/thelinuxlich/reqman.js
 * Knockout 1.1+
 
 ## Howto
