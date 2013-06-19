@@ -12,10 +12,6 @@ function Ctor(Parent, memberInit) {
   return F;
 }
 
-
-var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; },
-  __hasProp = {}.hasOwnProperty;
-
 ko.utils.IdentityMap = function() {
   this.find = function(id, params) {
     return $.grep(this, function(d) {
@@ -45,15 +41,10 @@ var KoModel = Ctor(function() {
   var __urls = {},__defaults = {},__transientParameters = [],__afterHooks = {},__cacheContainer = new ko.utils.IdentityMap(),__backup = {};
 
   var __equalityComparer = function(a, b) {
-    var oldValueIsPrimitive, primitiveTypes, _ref;
-    primitiveTypes = {
-      'undefined': true,
-      'boolean': true,
-      'number': true,
-      'string': true
-    };
-    oldValueIsPrimitive = (a === null) || (_ref = typeof a, __indexOf.call(primitiveTypes, _ref) >= 0);
-    if (oldValueIsPrimitive) {
+    var primitiveTypes = ['undefined', 'boolean', 'number', 'string'],
+        _ref = typeof a;
+    
+    if ((a === null) || primitiveTypes.indexOf(_ref) >= 0) {
       return a === b;
     } else {
       return false;
@@ -64,7 +55,7 @@ var KoModel = Ctor(function() {
     var i, item;
     this.__urls = __urls;
     for (i in this) {
-      if (!__hasProp.call(this, i)) continue;
+      if (!this.hasOwnProperty(i)) continue;
       item = this[i];
       if (i !== "__urls") {
         if (ko.isObservable(this[i])) {
@@ -287,7 +278,7 @@ var KoModel = Ctor(function() {
     args = $.extend(transientAttributes, args);
     temp = {};
     for (i in this) {
-      if (!__hasProp.call(this, i)) continue;
+      if (!this.hasOwnProperty(i)) continue;
       if (args[i] === true || args[i] === void 0) {
         temp[i] = this.get(i);
       }
@@ -309,7 +300,7 @@ var KoModel = Ctor(function() {
     var i, item, _results;
     _results = [];
     for (i in this) {
-      if (!__hasProp.call(this, i)) continue;
+      if (!this.hasOwnProperty(i)) continue;
       item = this[i];
       if (typeof this[i].equalityComparer === "function") {
         _results.push(this[i].equalityComparer = function() {
@@ -326,7 +317,7 @@ var KoModel = Ctor(function() {
     var i, item, _results;
     _results = [];
     for (i in this) {
-      if (!__hasProp.call(this, i)) continue;
+      if (!this.hasOwnProperty(i)) continue;
       item = this[i];
       if (typeof this[i].equalityComparer === "function") {
         this[i].equalityComparer = __equalityComparer;

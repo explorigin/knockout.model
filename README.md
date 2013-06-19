@@ -15,7 +15,6 @@ Date: Fri Mar 04 14:00:29 2011 -0300
 * Knockout 1.1+
 
 ## Howto
-* ATTENTION! This version is not retrocompatible! Changes were made to ensure a better experience without Coffeescript!
 * Override the __urls attribute to set your RESTful routes
 * The values you set on the attributes will be default when you call obj.clear()
 * Override the __transientParameters attribute to set values that will not save(convert to json or to js)
