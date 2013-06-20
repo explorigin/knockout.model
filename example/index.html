@@ -18,7 +18,7 @@
             this.surname = ko.observable("Bar");
 
             this.fullname = ko.computed(function() {
-                    return this.name() + " " + this.surname();
+                return this.name() + " " + this.surname();
             },this);
         }
     });
