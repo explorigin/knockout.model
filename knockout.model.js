@@ -110,6 +110,7 @@
             prop;
 
         this._backup_values = {};
+        this._ec_backup = {};
 
         // If specific model options are passed, apply them.
         for (prop in ['url', 'urlRoot', 'collection']) {
@@ -131,6 +132,11 @@
         this.initialize.apply(this, arguments);
 
         this.set(attrs, options);
+
+        // Declare the idAttribute if needed
+        if (!this.hasOwnProperty(this.idAttribute)) {
+            this[this.idAttribute] = null;
+        }
     };
 
     $.extend(ko.Model.prototype, {
@@ -166,7 +172,6 @@
                     new_value = ('' + item).match(ESCAPED_HTML_RE) !== false ? unescapeHtml(item) : item;
                     this[i] = new_value;
                 } else {
-                    alert(this[i]);
                     throw new Error('"' + i + '" is a read-only observable.  You cannot set it.');
                 }
             }
@@ -185,7 +190,7 @@
         isNew: function() {
             var value;
             value = this.get(this.idAttribute);
-            return [undefined, null, '', NaN].indexOf(value);
+            return [undefined, null, '', NaN].indexOf(value) !== -1;
         },
 
         // Override this to perform validation.
@@ -202,7 +207,10 @@
             var i, param, temp, transientAttributes, len, _ref;
             args = args || {};
 
-            transientAttributes = {};
+            transientAttributes = {
+                '_backup_values': false,
+                '_ec_backup': false
+            };
 
             _ref = this.transientParameters;
             for (i = 0, len = _ref.length; i < len; ++i) {
@@ -342,8 +350,7 @@
         },
 
         start_transaction: function() {
-            var _results = [],
-                alwaysEqual = function() {
+            var alwaysEqual = function() {
                     return true;
                 },
                 i, item;
@@ -351,16 +358,15 @@
             for (i in this) {
                 if (this.hasOwnProperty(i)) {
                     item = this[i];
-                    if (typeof item.equalityComparer === "function") {
-                        _results.push(item.equalityComparer = alwaysEqual);
-                    } else {
-                        _results.push(undefined);
+                    if (item && typeof item.equalityComparer === "function" && item.equalityComparer !== alwaysEqual) {
+                        this._ec_backup[i] = item.equalityComparer;
+                        item.equalityComparer = alwaysEqual;
                     }
                 }
             }
 
             this._backup();
-            return _results;
+            return;
         },
 
         commit: function() {
@@ -369,8 +375,8 @@
             for (i in this) {
                 if (this.hasOwnProperty(i)) {
                     item = this[i];
-                    if (typeof item.equalityComparer === "function") {
-                        item.equalityComparer = equalityComparer;
+                    if (item && typeof item.equalityComparer === "function" ) {
+                        item.equalityComparer = this._ec_backup[i];
                         if (typeof item.valueHasMutated === "function") {
                             _results.push(item.valueHasMutated());
                         } else {
