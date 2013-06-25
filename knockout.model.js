@@ -131,12 +131,12 @@
 
         this.initialize.apply(this, arguments);
 
-        this.set(attrs, options);
-
         // Declare the idAttribute if needed
         if (!this.hasOwnProperty(this.idAttribute)) {
             this[this.idAttribute] = null;
         }
+
+        this.set(attrs, options);
     };
 
     $.extend(ko.Model.prototype, {
@@ -169,10 +169,14 @@
                         this[i](new_value);
                     }
                 } else if (this[i] !== undefined && ko.isObservable(this[i]) === false) {
-                    new_value = ('' + item).match(ESCAPED_HTML_RE) !== false ? unescapeHtml(item) : item;
+                    new_value = typeof item === "string" && item.match(ESCAPED_HTML_RE) !== false ? unescapeHtml(item) : item;
                     this[i] = new_value;
                 } else {
-                    throw new Error('"' + i + '" is a read-only observable.  You cannot set it.');
+                    try {
+                        console.warning('"' + i + '" is a read-only or unknown value.');
+                    } catch (e) {
+
+                    }
                 }
             }
             return this;
@@ -270,7 +274,7 @@
                 params.url = this.url();
             }
 
-            if (options.data === null && model && ['create', 'update'].indexOf(method) !== -1) {
+            if (options.data === null && ['create', 'update'].indexOf(method) !== -1) {
                 params.contentType = 'application/json';
                 params.data = JSON.stringify(this.toJSON());
             }
@@ -346,21 +350,28 @@
         ////////////////////////
 
         _backup: function() {
+            var item, i;
             this._backup_values = this.toJS();
+            for (i in this._backup_values) {
+                item = this[i];
+                if ((ko.isObservable(item) || ko.isComputed(item)) && !ko.isWriteableObservable(item)) {
+                    this._backup_values[i] = undefined;
+                    delete this._backup_values[i];
+                }
+            }
         },
 
         start_transaction: function() {
-            var alwaysEqual = function() {
-                    return true;
-                },
+            var notifySubscribers = function() {},
                 i, item;
 
             for (i in this) {
                 if (this.hasOwnProperty(i)) {
                     item = this[i];
-                    if (item && typeof item.equalityComparer === "function" && item.equalityComparer !== alwaysEqual) {
-                        this._ec_backup[i] = item.equalityComparer;
-                        item.equalityComparer = alwaysEqual;
+
+                    if (item && typeof item.notifySubscribers === "function" && item.notifySubscribers !== notifySubscribers) {
+                        this._ec_backup[i] = item.notifySubscribers;
+                        item.notifySubscribers = notifySubscribers;
                     }
                 }
             }
@@ -375,8 +386,9 @@
             for (i in this) {
                 if (this.hasOwnProperty(i)) {
                     item = this[i];
-                    if (item && typeof item.equalityComparer === "function" ) {
-                        item.equalityComparer = this._ec_backup[i];
+                    if (item && typeof item.notifySubscribers === "function" ) {
+                        item.notifySubscribers = this._ec_backup[i];
+
                         if (typeof item.valueHasMutated === "function") {
                             _results.push(item.valueHasMutated());
                         } else {
