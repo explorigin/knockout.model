@@ -36,7 +36,7 @@ Licensed under the MIT license.
 * obj.destroy(params,callback) - Deletes an existing model instance on the server, using the "destroy" key from the url object
 
 # Transaction
-* obj.start_transaction() - Disconnects the model of subscribers (observers will receive updates but computeds will not update)
+* obj.startTransaction() - Disconnects the model of subscribers (observers will receive updates but computeds will not update)
 * obj.commit() - Reconnects the model with its subscribers and notifies them
 * obj.rollback() - Restores values from when start_transaction() was called and reconnects the model with its subscribers
 

@@ -27,7 +27,7 @@ describe('Transaction', function() {
             id: null
         });
 
-        shelly.start_transaction();
+        shelly.startTransaction();
 
         expect(shelly.toJS()).toEqual({
             first_name: "Shelly",
@@ -85,7 +85,7 @@ describe('Transaction', function() {
             id: null
         });
 
-        shelly.start_transaction();
+        shelly.startTransaction();
 
         expect(shelly.toJS()).toEqual({
             first_name: "Shelly",

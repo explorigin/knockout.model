@@ -422,7 +422,7 @@
             }
         },
 
-        start_transaction: function() {
+        startTransaction: function() {
             var notifySubscribers = function() {},
                 i, item;
 
