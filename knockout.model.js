@@ -10,20 +10,10 @@
         factory(jQuery, window.ko);
     }
 }(function module($, ko) {
+    var extend = ko.utils.extend;
 
     // Utility Methods
     //////////////////
-
-    // IdentityMap - a find()-able array
-    var IdentityMap = function() {
-        this.find = function(id, params) {
-            return $.grep(this, function(d) {
-                return d.id === id && ko.utils.stringifyJson(d.params) === ko.utils.stringifyJson(params);
-            })[0];
-        };
-        return this;
-    };
-    IdentityMap.prototype = new Array();
 
     var unescapeHtml = function(str) {
         var result, temp;
@@ -62,7 +52,7 @@
         }
 
         // Inherit class (static) properties from parent.
-        $.extend(child, parent);
+        extend(child, parent);
 
         // Set the prototype chain to inherit from `parent`, without calling
         // `parent`'s constructor function.
@@ -71,10 +61,10 @@
 
         // Add prototype properties (instance properties) to the subclass,
         // if supplied.
-        if (protoProps) $.extend(child.prototype, protoProps);
+        if (protoProps) extend(child.prototype, protoProps);
 
         // Add static properties to the constructor function, if supplied.
-        if (staticProps) $.extend(child, staticProps);
+        if (staticProps) extend(child, staticProps);
 
         // Correctly set child's `prototype.constructor`.
         child.prototype.constructor = child;
@@ -86,7 +76,7 @@
     };
 
     // The self-propagating extend function that Backbone classes use.
-    var extend = function(protoProps, classProps) {
+    var _extend = function(protoProps, classProps) {
         var child = inherits(this, protoProps, classProps);
         child.extend = this.extend;
         return child;
@@ -139,7 +129,7 @@
         this.set(attrs, options);
     };
 
-    $.extend(ko.Model.prototype, {
+    extend(ko.Model.prototype, {
         initialize: function(attrs, options) {},
 
         idAttribute: 'id',
@@ -174,9 +164,7 @@
                 } else {
                     try {
                         console.warning('"' + i + '" is a read-only or unknown value.');
-                    } catch (e) {
-
-                    }
+                    } catch (e) {}
                 }
             }
             return this;
@@ -222,7 +210,7 @@
                 transientAttributes[param] = false;
             }
 
-            args = $.extend(transientAttributes, args);
+            args = extend(transientAttributes, args);
             temp = {};
 
             for (i in this) {
@@ -283,7 +271,7 @@
                 params.processData = false;
             }
 
-            xhr = options.xhr = $.ajax($.extend(params, options));
+            xhr = options.xhr = $.ajax(extend(params, options));
             return xhr;
         },
 
@@ -291,7 +279,7 @@
             var model = this,
                 success;
 
-            options = options ? $.extend({}, options) : {};
+            options = options ? extend({}, options) : {};
 
             options.parse = options.parse === undefined ? true : options.parse;
             success = options.success;
@@ -317,7 +305,7 @@
             var model = this,
                 success;
 
-            options = options ? $.extend({}, options) : {};
+            options = options ? extend({}, options) : {};
 
             if (this.validate() !== true) {
                 if (typeof options.invalid === "function") {
@@ -407,6 +395,6 @@
         }
     });
 
-    ko.Model.extend = extend;
+    ko.Model.extend = _extend;
 })
 })(window, document, navigator, window["jQuery"]);
