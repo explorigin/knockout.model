@@ -26,9 +26,21 @@
         } else {
             return str;
         }
-    }
+    };
 
-    // ctor, inherits, extend - shamelessly ripped from Backbone.js
+    // Subscription things ripped from KnockoutJS.  I chose not to use its own
+    // code because it was not an exposed API and munged via minification.
+    var Subscription = function (target, callback, disposeCallback) {
+        this.target = target;
+        this.callback = callback;
+        this.disposeCallback = disposeCallback;
+    };
+    Subscription.prototype.dispose = function () {
+        this.isDisposed = true;
+        this.disposeCallback();
+    };
+
+    // ctor, inherits, _extend - shamelessly ripped from Backbone.js
     ///////////////////////////////////////////////////////////////
 
     // Shared empty constructor function to aid in prototype-chain creation.
@@ -127,6 +139,10 @@
         }
 
         this.set(attrs, options);
+
+        // Set up subscriptions
+        this._subscriptions = [];
+        this._attrSubscriptions = [];
     };
 
     extend(ko.Model.prototype, {
@@ -136,9 +152,8 @@
         urlRoot: '',
         defaults: {},
         transientParameters: [],
-        afterHooks: {},
-
-        _cache: new IdentityMap(),
+        subscriptionParameters: [],
+        subscriptionDebounce: 50,
 
         // Property methods
         ///////////////////
@@ -175,6 +190,50 @@
             return this.set(this.defaults);
         },
 
+        subscribe: function(callback, target) {
+            console.log('subscribable');
+            var boundCallback = target ? callback.bind(target) : callback,
+                subscription = new Subscription(this, boundCallback, function () {
+                    ko.utils.arrayRemoveItem(this._subscriptions, subscription);
+                }.bind(this)),
+                changeCache = {},
+                interval = null,
+                self = this;
+
+            if (this._subscriptions.length === 0) {
+                console.log('initializeing subscribables');
+                ko.utils.arrayForEach(this.subscriptionParameters, function (attr) {
+                    var item = self[attr];
+                    if (!ko.isSubscribable(item)) { return; }
+
+                    self._attrSubscriptions.push(item.subscribe(function(val) {
+                        console.log('change noted');
+                        changeCache[attr] = val;
+
+                        if (interval !== null) {
+                            clearTimeout(interval);
+                        }
+
+                        interval = setTimeout(function() {
+                            self.notifySubscribers(changeCache);
+                            changeCache = {};
+                        }, self.subscriptionDebounce);
+                    }));
+                });
+            }
+
+            this._subscriptions.push(subscription);
+            return subscription;
+        },
+
+        notifySubscribers: function(value) {
+            ko.utils.arrayForEach(this._subscriptions, function (subscription) {
+                if (subscription && (subscription.isDisposed !== true)) {
+                    subscription.callback(value);
+                }
+            });
+        },
+
         // Status methods
         /////////////////
 
@@ -201,7 +260,9 @@
 
             transientAttributes = {
                 '_backup_values': false,
-                '_ec_backup': false
+                '_ec_backup': false,
+                '_subscriptions': false,
+                '_attrSubscriptions': false
             };
 
             _ref = this.transientParameters;
@@ -332,7 +393,15 @@
             return this._sync(this.isNew() ? 'create' : 'update', options);
         },
 
-        destroy: function() {},
+        destroy: function() {
+            ko.utils.arrayForEach(this._attrSubscriptions, function (subscription) {
+                subscription.dispose();
+            });
+
+            ko.utils.arrayForEach(this._subscriptions, function (subscription) {
+                subscription.dispose();
+            });
+        },
 
         // Transactional methods
         ////////////////////////
