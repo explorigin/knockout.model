@@ -193,13 +193,19 @@
         subscribe: function(callback, target) {
             var boundCallback = target ? callback.bind(target) : callback,
                 subscription = new Subscription(this, boundCallback, function () {
-                    ko.utils.arrayRemoveItem(this._subscriptions, subscription);
-                }.bind(this)),
+                        ko.utils.arrayRemoveItem(this._subscriptions, subscription);
+                        if (this._subscriptions.length === 0) {
+                            ko.utils.arrayForEach(this._attrSubscriptions, function (subscription) {
+                                subscription.dispose();
+                            });
+                            this._attrSubscriptions = [];
+                        }
+                    }.bind(this)),
                 changeCache = {},
                 interval = null,
                 self = this;
 
-            if (this._subscriptions.length === 0) {
+            if (this._attrSubscriptions.length === 0) {
                 ko.utils.arrayForEach(this.subscriptionParameters, function (attr) {
                     var item = self[attr];
                     if (!ko.isSubscribable(item)) { return; }
@@ -394,6 +400,7 @@
             ko.utils.arrayForEach(this._attrSubscriptions, function (subscription) {
                 subscription.dispose();
             });
+            this._attrSubscriptions = [];
 
             ko.utils.arrayForEach(this._subscriptions, function (subscription) {
                 subscription.dispose();

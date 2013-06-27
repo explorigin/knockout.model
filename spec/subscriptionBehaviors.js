@@ -17,9 +17,15 @@ describe('Subscription ', function() {
             shelly = new Intern(),
             output = null;
 
+        expect(shelly._subscriptions.length).toEqual(0);
+        expect(shelly._attrSubscriptions.length).toEqual(0);
+
         shelly.subscribe(function(value) {
             output = value;
         });
+
+        expect(shelly._subscriptions.length).toEqual(1);
+        expect(shelly._attrSubscriptions.length).toEqual(1);
 
         runs(function() {
             shelly.set({first_name: 'Shelly'});
@@ -35,6 +41,9 @@ describe('Subscription ', function() {
             });
 
             shelly.destroy();
+
+            expect(shelly._subscriptions.length).toEqual(0);
+            expect(shelly._attrSubscriptions.length).toEqual(0);
         });
     });
 });
