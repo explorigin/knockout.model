@@ -191,7 +191,6 @@
         },
 
         subscribe: function(callback, target) {
-            console.log('subscribable');
             var boundCallback = target ? callback.bind(target) : callback,
                 subscription = new Subscription(this, boundCallback, function () {
                     ko.utils.arrayRemoveItem(this._subscriptions, subscription);
@@ -201,13 +200,11 @@
                 self = this;
 
             if (this._subscriptions.length === 0) {
-                console.log('initializeing subscribables');
                 ko.utils.arrayForEach(this.subscriptionParameters, function (attr) {
                     var item = self[attr];
                     if (!ko.isSubscribable(item)) { return; }
 
                     self._attrSubscriptions.push(item.subscribe(function(val) {
-                        console.log('change noted');
                         changeCache[attr] = val;
 
                         if (interval !== null) {
