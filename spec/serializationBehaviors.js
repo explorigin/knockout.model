@@ -28,7 +28,7 @@ describe('Serialization', function() {
         });
     });
 
-    it('_clone should not return transientParameters', function () {
+    it('_clone should not return transientAttributes', function () {
         var Intern = ko.Model.extend({
                 initialize: function () {
                     var self = this;
@@ -40,7 +40,7 @@ describe('Serialization', function() {
                         return self.first_name() + " " + self.last_name();
                     });
                 },
-                transientParameters: [
+                transientAttributes: [
                     'first_name',
                     'last_name'
                 ]

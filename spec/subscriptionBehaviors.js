@@ -12,7 +12,7 @@ describe('Subscription ', function() {
                         return self.first_name() + " " + self.last_name();
                     });
                 },
-                subscriptionParameters: ['first_name']
+                subscribableAttributes: ['first_name']
             }),
             shelly = new Intern(),
             output = null;
@@ -48,7 +48,7 @@ describe('Subscription ', function() {
                         return self.first_name() + " " + self.last_name();
                     });
                 },
-                subscriptionParameters: ['first_name']
+                subscribableAttributes: ['first_name']
             }),
             shelly = new Intern(),
             output = null;

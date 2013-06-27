@@ -151,8 +151,8 @@
         idAttribute: 'id',
         urlRoot: '',
         defaults: {},
-        transientParameters: [],
-        subscriptionParameters: [],
+        transientAttributes: [],
+        subscribableAttributes: [],
         subscriptionDebounce: 50,
 
         // Property methods
@@ -206,7 +206,7 @@
                 self = this;
 
             if (this._attrSubscriptions.length === 0) {
-                ko.utils.arrayForEach(this.subscriptionParameters, function (attr) {
+                ko.utils.arrayForEach(this.subscribableAttributes, function (attr) {
                     var item = self[attr];
                     if (!ko.isSubscribable(item)) { return; }
 
@@ -256,7 +256,7 @@
         // Serialization methods
         ////////////////////////
 
-        // Return an object of the properties and values minus those specified in transientParameters
+        // Return an object of the properties and values minus those specified in transientAttributes
         _clone: function(args) {
             var i, param, temp, transientAttributes, len, _ref;
             args = args || {};
@@ -268,7 +268,7 @@
                 '_attrSubscriptions': false
             };
 
-            _ref = this.transientParameters;
+            _ref = this.transientAttributes;
             for (i = 0, len = _ref.length; i < len; ++i) {
                 param = _ref[i];
                 transientAttributes[param] = false;
