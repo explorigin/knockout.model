@@ -125,8 +125,9 @@
             }
         }
 
-        // TODO - Include this?
-        // if (options.parse) attrs = this.parse(attrs, options) || {};
+        if (options.parse) {
+            attrs = this.parse(attrs, options) || {};
+        }
 
         // Fill in defaults for any non-supplied properties
         for (prop in this.defaults) {
@@ -164,10 +165,15 @@
         },
 
         // Set a hash of properties
-        set: function(args) {
-            var i, item, new_value;
-            for (i in args) {
-                item = args[i];
+        set: function(attrs, options) {
+            var i, item, new_value, options = options || {};
+
+            if (options.parse) {
+                attrs = this.parse(attrs, options) || {};
+            }
+
+            for (i in attrs) {
+                item = attrs[i];
                 if (ko.isWriteableObservable(this[i])) {
                     new_value = typeof item === "string" && item.match(ESCAPED_HTML_RE) !== false ? unescapeHtml(item) : item;
                     if (new_value !== this[i]()) {

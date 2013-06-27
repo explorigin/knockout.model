@@ -114,4 +114,52 @@ describe('Properties', function() {
 
         expect(bob.get('hobby')).toEqual(null);
     });
+
+    it('Should parse if specified on instantiation', function () {
+        var Employee = ko.Model.extend({
+                initialize: function () {
+                    var self = this;
+
+                    this.first_name = ko.observable();
+                    this.last_name = ko.observable();
+                    this.name = ko.computed(function () {
+                        return self.first_name() + " " + self.last_name();
+                    });
+                },
+                parse: function (val) {
+                    val.last_name = 'Smith';
+                    return val;
+                }
+            }),
+            bob = new Employee({first_name: 'Bob'}, {parse: true});
+
+        expect(bob.get('first_name')).toEqual('Bob');
+        expect(bob.get('last_name')).toEqual('Smith');
+    });
+
+    it('Should parse if specified on set', function () {
+        var Employee = ko.Model.extend({
+                initialize: function () {
+                    var self = this;
+
+                    this.first_name = ko.observable();
+                    this.last_name = ko.observable();
+                    this.name = ko.computed(function () {
+                        return self.first_name() + " " + self.last_name();
+                    });
+                },
+                parse: function (val) {
+                    val.last_name = 'Smith';
+                    return val;
+                }
+            }),
+            bob = new Employee();
+
+        expect(bob.get('last_name')).toEqual(null);
+
+        bob.set({first_name: 'Bob'}, {parse: true});
+
+        expect(bob.get('first_name')).toEqual('Bob');
+        expect(bob.get('last_name')).toEqual('Smith');
+    });
 });
