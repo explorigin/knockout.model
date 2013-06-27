@@ -117,4 +117,24 @@ describe('Serialization', function() {
             id: null
         });
     });
+
+
+    it('parse should assume the passed value is an id if not an object', function () {
+        var Intern = ko.Model.extend({
+                initialize: function () {
+                    var self = this;
+
+                    this.first_name = ko.observable();
+                }
+            }),
+
+            shelly = new Intern();
+
+        var output = shelly.parse(1);
+
+        expect(typeof output).toEqual('object');
+        expect(output).toEqual({
+            id: 1
+        });
+    });
 });

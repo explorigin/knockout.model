@@ -367,6 +367,12 @@
         },
 
         parse: function(resp, options) {
+            var obj;
+            if (typeof resp !== 'object') {
+                obj = {};
+                obj[this.idAttribute] = resp;
+                return obj;
+            }
             return resp;
         },
 
