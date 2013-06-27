@@ -1,5 +1,5 @@
 
-describe('Subscription ', function() {
+describe('Subscription', function() {
     it('Should fire when a subscribable property changes', function () {
         var Intern = ko.Model.extend({
                 initialize: function () {
@@ -53,19 +53,19 @@ describe('Subscription ', function() {
             shelly = new Intern(),
             output = null;
 
-        expect(shelly._subscriptions.length).toEqual(0);
-        expect(shelly._attrSubscriptions.length).toEqual(0);
+        expect(shelly._internals.subscriptions.length).toEqual(0);
+        expect(shelly._internals.attrSubscriptions.length).toEqual(0);
 
         shelly.subscribe(function(value) {
             output = value;
         });
 
-        expect(shelly._subscriptions.length).toEqual(1);
-        expect(shelly._attrSubscriptions.length).toEqual(1);
+        expect(shelly._internals.subscriptions.length).toEqual(1);
+        expect(shelly._internals.attrSubscriptions.length).toEqual(1);
 
         shelly.destroy();
 
-        expect(shelly._subscriptions.length).toEqual(0);
-        expect(shelly._attrSubscriptions.length).toEqual(0);
+        expect(shelly._internals.subscriptions.length).toEqual(0);
+        expect(shelly._internals.attrSubscriptions.length).toEqual(0);
     });
 });

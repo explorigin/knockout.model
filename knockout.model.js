@@ -104,15 +104,19 @@
     };
 
 
-    // The star of the show.
+    // Model Class
     ko.Model = function(attributes, options) {
         var defaults,
             attrs = attributes || {},
             options = options || {},
             prop;
 
-        this._backup_values = {};
-        this._ec_backup = {};
+        this._internals = {
+            backupValues: {},
+            attrSubscriberCache: {},
+            subscriptions: [],
+            attrSubscriptions: []
+        };
 
         // If specific model options are passed, apply them.
         for (prop in ['url', 'urlRoot', 'collection']) {
@@ -139,10 +143,6 @@
         }
 
         this.set(attrs, options);
-
-        // Set up subscriptions
-        this._subscriptions = [];
-        this._attrSubscriptions = [];
     };
 
     extend(ko.Model.prototype, {
@@ -192,25 +192,27 @@
 
         subscribe: function(callback, target) {
             var boundCallback = target ? callback.bind(target) : callback,
+                subscriptions = this._internals.subscriptions,
+                attrSubscriptions = this._internals.attrSubscriptions,
                 subscription = new Subscription(this, boundCallback, function () {
-                        ko.utils.arrayRemoveItem(this._subscriptions, subscription);
-                        if (this._subscriptions.length === 0) {
-                            ko.utils.arrayForEach(this._attrSubscriptions, function (subscription) {
+                        ko.utils.arrayRemoveItem(subscriptions, subscription);
+                        if (subscriptions.length === 0) {
+                            ko.utils.arrayForEach(attrSubscriptions, function (subscription) {
                                 subscription.dispose();
                             });
-                            this._attrSubscriptions = [];
+                            attrSubscriptions = [];
                         }
                     }.bind(this)),
                 changeCache = {},
                 interval = null,
                 self = this;
 
-            if (this._attrSubscriptions.length === 0) {
+            if (attrSubscriptions.length === 0) {
                 ko.utils.arrayForEach(this.subscribableAttributes, function (attr) {
                     var item = self[attr];
                     if (!ko.isSubscribable(item)) { return; }
 
-                    self._attrSubscriptions.push(item.subscribe(function(val) {
+                    self._internals.attrSubscriptions.push(item.subscribe(function(val) {
                         changeCache[attr] = val;
 
                         if (interval !== null) {
@@ -225,12 +227,12 @@
                 });
             }
 
-            this._subscriptions.push(subscription);
+            subscriptions.push(subscription);
             return subscription;
         },
 
         notifySubscribers: function(value) {
-            ko.utils.arrayForEach(this._subscriptions, function (subscription) {
+            ko.utils.arrayForEach(this._internals.subscriptions, function (subscription) {
                 if (subscription && (subscription.isDisposed !== true)) {
                     subscription.callback(value);
                 }
@@ -262,10 +264,7 @@
             args = args || {};
 
             transientAttributes = {
-                '_backup_values': false,
-                '_ec_backup': false,
-                '_subscriptions': false,
-                '_attrSubscriptions': false
+                '_internals': false
             };
 
             _ref = this.transientAttributes;
@@ -397,12 +396,12 @@
         },
 
         destroy: function() {
-            ko.utils.arrayForEach(this._attrSubscriptions, function (subscription) {
+            ko.utils.arrayForEach(this._internals.attrSubscriptions, function (subscription) {
                 subscription.dispose();
             });
-            this._attrSubscriptions = [];
+            this._internals.attrSubscriptions = [];
 
-            ko.utils.arrayForEach(this._subscriptions, function (subscription) {
+            ko.utils.arrayForEach(this._internals.subscriptions, function (subscription) {
                 subscription.dispose();
             });
         },
@@ -411,19 +410,22 @@
         ////////////////////////
 
         _backup: function() {
-            var item, i;
-            this._backup_values = this.toJS();
-            for (i in this._backup_values) {
+            var backupValues = this._internals.backupValues,
+                item, i;
+            backupValues = this.toJS();
+            for (i in backupValues) {
                 item = this[i];
                 if ((ko.isObservable(item) || ko.isComputed(item)) && !ko.isWriteableObservable(item)) {
-                    this._backup_values[i] = undefined;
-                    delete this._backup_values[i];
+                    backupValues[i] = undefined;
+                    delete backupValues[i];
                 }
             }
+            this._internals.backupValues = backupValues;
         },
 
         startTransaction: function() {
             var notifySubscribers = function() {},
+                attrSubscriberCache = this._internals.attrSubscriberCache,
                 i, item;
 
             for (i in this) {
@@ -431,7 +433,7 @@
                     item = this[i];
 
                     if (item && typeof item.notifySubscribers === "function" && item.notifySubscribers !== notifySubscribers) {
-                        this._ec_backup[i] = item.notifySubscribers;
+                        attrSubscriberCache[i] = item.notifySubscribers;
                         item.notifySubscribers = notifySubscribers;
                     }
                 }
@@ -442,13 +444,15 @@
         },
 
         commit: function() {
-            var i, item, _results = [];
+            var attrSubscriberCache = this._internals.attrSubscriberCache,
+                _results = [],
+                i, item;
 
             for (i in this) {
                 if (this.hasOwnProperty(i)) {
                     item = this[i];
                     if (item && typeof item.notifySubscribers === "function" ) {
-                        item.notifySubscribers = this._ec_backup[i];
+                        item.notifySubscribers = attrSubscriberCache[i];
 
                         if (typeof item.valueHasMutated === "function") {
                             _results.push(item.valueHasMutated());
