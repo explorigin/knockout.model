@@ -474,16 +474,44 @@
                     }
                 }
             }
-            this._backup_values = {};
+            this._internals.backupValues = {};
             return _results;
         },
 
         rollback: function() {
-            this.set(this._backup_values);
+            this.set(this._internals.backupValues);
             this.commit();
         }
     });
 
     ko.Model.extend = _extend;
+
+    // RelatedModel Class
+    ko.RelatedModel = function RelatedModel(model) {
+        var value = ko.observable(null);
+
+        return ko.computed({
+            read: value,
+            write: function(val) {
+                var instance = value();
+
+                // on first write, create our instance
+                if (instance === null) {
+                    instance = new model();
+                }
+
+                if (val instanceof model) {
+                    instance.destroy();
+                    instance = val;
+                } else if (typeof val === 'object') {
+                    instance.set(val);
+                } else {
+                    instance.set(instance.parse(val) || {});
+                }
+
+                value(instance);
+            }
+        });
+    };
 })
 })(window, document, navigator, window["jQuery"]);
