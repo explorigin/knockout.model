@@ -2,7 +2,7 @@
 // Module-loading wizardry ripped from KnockoutJS
 ! function(factory) {
     // Support two module loading scenarios
-    if (typeof define === 'function' && define['amd']) {
+    if (typeof define === 'function' && define.amd) {
         // [1] AMD anonymous module
         define(['jquery', 'knockout'], factory);
     } else {
@@ -121,7 +121,7 @@
         // If specific model options are passed, apply them.
         for (prop in ['url', 'urlRoot', 'collection']) {
             if (options.hasOwnProperty(prop)) {
-                this[prop] = options[prop]
+                this[prop] = options[prop];
             }
         }
 
@@ -306,17 +306,19 @@
         //////////////////
 
         // Build the url used to access the REST resource.
-        url: function() {
+        url: function(id) {
             var base = this.urlRoot || urlError();
-            if (this.isNew()) {
+            if (this.isNew() && id === undefined) {
                 return base;
             }
+
+            id = id || encodeURIComponent(this.get(this.idAttribute));
 
             if (base.charAt(base.length - 1) !== '/') {
                 base += '/';
             }
 
-            return base + encodeURIComponent(this.get(this.idAttribute));
+            return base + id;
         },
 
         _sync: function(method_name, options) {
