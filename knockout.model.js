@@ -10,7 +10,15 @@
         factory(jQuery, window.ko);
     }
 }(function module($, ko) {
-    var extend = ko.utils.extend;
+    var extend = ko.utils.extend,
+        ESCAPED_HTML_RE = new RegExp("&[^\\s]*;"),
+        METHOD_MAP = {
+            'create': 'POST',
+            'update': 'PUT',
+            'delete': 'DELETE',
+            'read':   'GET'
+        },
+        InstanceCache;
 
     // Utility Methods
     //////////////////
@@ -94,14 +102,40 @@
         return child;
     };
 
-    ESCAPED_HTML_RE = new RegExp("&[^\\s]*;");
-    METHOD_MAP = {
-        'create': 'POST',
-        'update': 'PUT',
-//        'patch':  'PATCH', // Not implemented
-        'delete': 'DELETE',
-        'read':   'GET'
+
+    // Instance Cache
+    InstanceCache = function InstanceCache(lifespan) {
+        this.cache = {};
+        this.lifespan = lifespan || 5;
+
+        // TODO - this could get ugly if there are a lot of instances.  Run through this piece-wise.
+        this.interval = setInterval(function() {
+            for (key in this.cache) {
+                this.get(key);
+            }
+        }, this.lifespan);
     };
+
+    InstanceCache.prototype = {
+        get: function(key) {
+            var value = this.cache[key];
+            if (value && (value.expires < new Date())) {
+                delete this.cache[key];
+                value = {val: null};
+            }
+            return value ? value.val : null;
+        },
+        set: function(key, instance, lifespan) {
+            lifespan = lifespan || this.lifespan;
+            this.cache[key] = {
+                expires: new Date((new Date()).valueOf() + (lifespan * 1000)),
+                val: instance
+            };
+            return instance;
+        }
+    };
+
+    ko.instanceCache = new InstanceCache();
 
 
     // Model Class
@@ -119,7 +153,7 @@
         };
 
         // If specific model options are passed, apply them.
-        for (prop in ['url', 'urlRoot', 'collection']) {
+        for (prop in ['url', 'urlRoot']) {
             if (options.hasOwnProperty(prop)) {
                 this[prop] = options[prop];
             }
