@@ -341,7 +341,11 @@
 
         // Build the url used to access the REST resource.
         url: function(id) {
-            var base = this.urlRoot || urlError();
+            var base = this.urlRoot;
+            if (!base) {
+                throw new Error("You must specify a urlRoot.");
+            }
+
             if (this.isNew() && id === undefined) {
                 return base;
             }
@@ -523,26 +527,44 @@
     ko.Model.extend = _extend;
 
     // RelatedModel Class
-    ko.RelatedModel = function RelatedModel(model) {
+    ko.RelatedModel = function RelatedModel(model, options) {
         var value = ko.observable(null);
+
+        options = options || {};
+        options.useCache = options.useCache === undefined ? true : options.useCache;
 
         return ko.computed({
             read: value,
             write: function(val) {
-                var instance = value();
-
-                // on first write, create our instance
-                if (instance === null) {
-                    instance = new model();
-                }
+                var instance = value(),
+                    url = null,
+                    cachedInstance = null;
 
                 if (val instanceof model) {
+                    url = val.url()
+                } else {
+                    val = model.__super__.parse.call(model.prototype, val || {});
+                    url = model.__super__.url.call(model.prototype, val[model.__super__.idAttribute])
+                }
+
+                if (instance === null) {
+                    if (val instanceof model) {
+                        instance = val;
+                    } else if (options.useCache && url) {
+                        cachedInstance = ko.instanceCache.get(url);
+                        instance = cachedInstance || new model(val);
+                    } else {
+                        instance = new model(val);
+                    }
+                } else if (val instanceof model) {
                     instance.destroy();
                     instance = val;
-                } else if (typeof val === 'object') {
-                    instance.set(val);
                 } else {
-                    instance.set(instance.parse(val) || {});
+                    instance.set(val);
+                }
+
+                if (options.useCache) {
+                    ko.instanceCache.set(instance.url(), instance, options.lifespan);
                 }
 
                 value(instance);
