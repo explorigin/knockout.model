@@ -300,7 +300,7 @@
 
         // Return an object of the properties and values minus those specified in transientAttributes
         _clone: function(args) {
-            var i, param, temp, transientAttributes, len, _ref;
+            var i, param, temp, transientAttributes, attr, len, _ref;
             args = args || {};
 
             transientAttributes = {
@@ -322,7 +322,16 @@
                 }
 
                 if (args[i] !== false) {
-                    temp[i] = this.get(i);
+                    attr = temp[i] = this.get(i);
+                    if (typeof attr === 'object') {
+                        if (attr instanceof ko.Model) {
+                            temp[i] = attr.url();
+                        } else if (attr && attr.toJS) {
+                            temp[i] = attr.toJS.apply(attr);
+                        } else {
+                            temp[i] = JSON.parse(JSON.stringify(attr));
+                        }
+                    }
                 }
             }
             return temp;
