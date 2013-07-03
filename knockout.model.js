@@ -153,6 +153,7 @@
         };
 
         this._destroy = false;
+        this._lastFetched = null;
 
         // If specific model options are passed, apply them.
         for (prop in ['url', 'urlRoot']) {
@@ -306,7 +307,8 @@
             args = args || {};
 
             transientAttributes = {
-                '_internals': false
+                '_internals': false,
+                '_lastFetched': false
             };
 
             _ref = this.transientAttributes;
@@ -413,6 +415,7 @@
                 if (!model.set(model.parse(resp, options), options)) {
                     return false;
                 }
+                model._lastFetched = new Date();
                 if (success) {
                     success(resp, options);
                 }
@@ -454,6 +457,7 @@
                 if (!model.set(model.parse(resp, options), options)) {
                     return false;
                 }
+                model._lastFetched = new Date();
                 if (success) {
                     success(resp, options);
                 }

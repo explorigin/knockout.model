@@ -51,6 +51,7 @@ describe('Network', function() {
                     name: "Shelly Smith",
                     id: 1
                 });
+            expect(shelly._lastFetched).toNotEqual(null);
         });
     });
 
@@ -108,6 +109,7 @@ describe('Network', function() {
                 last_name: "Smith",
                 age: 22
             });
+            expect(shelly._lastFetched).toNotEqual(null);
         });
     });
 
