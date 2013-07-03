@@ -152,6 +152,8 @@
             attrSubscriptions: []
         };
 
+        this._destroy = false;
+
         // If specific model options are passed, apply them.
         for (prop in ['url', 'urlRoot']) {
             if (options.hasOwnProperty(prop)) {
@@ -323,7 +325,12 @@
 
                 if (args[i] !== false) {
                     attr = temp[i] = this.get(i);
-                    if (typeof attr === 'object') {
+
+                    if (i === '_destroy' && attr === false) {
+                        // Only include _destroy if it is set.
+                        delete temp[i];
+
+                    } else if (typeof attr === 'object') {
                         if (attr instanceof ko.Model) {
                             temp[i] = attr.url();
                         } else if (attr && attr.toJS) {
@@ -465,6 +472,8 @@
             ko.utils.arrayForEach(this._internals.subscriptions, function (subscription) {
                 subscription.dispose();
             });
+
+            this._destroy = true;
         },
 
         // Transactional methods
@@ -556,20 +565,24 @@
                     url = model.__super__.url.call(model.prototype, val[model.__super__.idAttribute])
                 }
 
-                if (instance === null) {
-                    if (val instanceof model) {
-                        instance = val;
-                    } else if (options.useCache && url) {
-                        cachedInstance = ko.instanceCache.get(url);
-                        instance = cachedInstance || new model(val);
-                    } else {
-                        instance = new model(val);
-                    }
-                } else if (val instanceof model) {
-                    instance.destroy();
+                if (options.useCache) {
+                    cachedInstance = ko.instanceCache.get(url);
+                }
+
+
+                if (options.overwriteDestroys &&
+                    instance !== null &&
+                    (cachedInstance === null ||
+                     cachedInstance.url() !== instance.url())) {
+                        instance.destroy();
+                }
+
+                if (val instanceof model) {
                     instance = val;
+                } else if (cachedInstance) {
+                    instance = cachedInstance;
                 } else {
-                    instance.set(val);
+                    instance = new model(val);
                 }
 
                 if (options.useCache) {
