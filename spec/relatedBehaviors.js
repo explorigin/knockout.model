@@ -150,3 +150,117 @@ describe('Related Models', function() {
         expect(shelly.boss().first_name()).toNotEqual(boss.first_name());
     });
 });
+
+describe('RelatedArrays', function() {
+    it('Should only push instances', function () {
+        var Intern = ko.Model.extend({
+                initialize: function () {
+                    this.first_name = ko.observable();
+                    this.last_name = ko.observable();
+                },
+                urlRoot: '/internsg'
+            }),
+            interns = ko.RelatedArray(Intern);
+
+        interns.push(3);
+        interns.push({id:6, first_name:'Shelly'});
+        interns.push(new Intern({id:9, first_name:'Shelly'}));
+
+        expect(interns()[0] instanceof Intern).toEqual(true);
+        expect(interns()[1] instanceof Intern).toEqual(true);
+        expect(interns()[2] instanceof Intern).toEqual(true);
+
+        expect(interns()[0].id).toEqual(3);
+        expect(interns()[1].id).toEqual(6);
+        expect(interns()[2].id).toEqual(9);
+    });
+
+    it('Should only unshift instances', function () {
+        var Intern = ko.Model.extend({
+                initialize: function () {
+                    this.first_name = ko.observable();
+                    this.last_name = ko.observable();
+                },
+                urlRoot: '/internsh'
+            }),
+            interns = ko.RelatedArray(Intern);
+
+        interns.unshift(3);
+        interns.unshift({id:6, first_name:'Shelly'});
+        interns.unshift(new Intern({id:9, first_name:'Shelly'}));
+
+        expect(interns()[0] instanceof Intern).toEqual(true);
+        expect(interns()[1] instanceof Intern).toEqual(true);
+        expect(interns()[2] instanceof Intern).toEqual(true);
+
+        expect(interns()[0].id).toEqual(9);
+        expect(interns()[1].id).toEqual(6);
+        expect(interns()[2].id).toEqual(3);
+    });
+
+    it('Should be able to tell the index of a member instance by ID.', function () {
+        var Intern = ko.Model.extend({
+                initialize: function () {
+                    this.first_name = ko.observable();
+                    this.last_name = ko.observable();
+                },
+                urlRoot: '/internsi'
+            }),
+            interns = ko.RelatedArray(Intern);
+
+        interns.push({id:3, first_name:'Bob'});
+        interns.push({id:6, first_name:'Shelly'});
+
+        expect(interns.indexOf(3)).toEqual(0);
+        expect(interns.indexOf(6)).toEqual(1);
+    });
+
+    it('Should remove an instance based on ID', function () {
+        var Intern = ko.Model.extend({
+                initialize: function () {
+                    this.first_name = ko.observable();
+                    this.last_name = ko.observable();
+                },
+                urlRoot: '/internsj'
+            }),
+            interns = ko.RelatedArray(Intern);
+
+        interns.push({id:3, first_name:'Bob'});
+        interns.push({id:6, first_name:'Shelly'});
+        interns.push({id:9, first_name:'Joe'});
+
+        expect(interns.indexOf(3)).toEqual(0);
+        expect(interns.indexOf(6)).toEqual(1);
+        expect(interns.indexOf(9)).toEqual(2);
+
+        interns.remove(6);
+
+        expect(interns.indexOf(3)).toEqual(0);
+        expect(interns.indexOf(9)).toEqual(1);
+    });
+
+    it('Should destroy an instance based on ID', function () {
+        var Intern = ko.Model.extend({
+                initialize: function () {
+                    this.first_name = ko.observable();
+                    this.last_name = ko.observable();
+                },
+                urlRoot: '/internsk'
+            }),
+            interns = ko.RelatedArray(Intern);
+
+        interns.push({id:3, first_name:'Bob'});
+        interns.push({id:6, first_name:'Shelly'});
+        interns.push({id:9, first_name:'Joe'});
+
+        expect(interns()[0]._destroy).toEqual(false);
+        expect(interns()[1]._destroy).toEqual(false);
+        expect(interns()[2]._destroy).toEqual(false);
+
+        interns.destroy(6);
+
+        expect(interns()[0]._destroy).toEqual(false);
+        expect(interns()[1]._destroy).toEqual(true);
+        expect(interns()[2]._destroy).toEqual(false);
+    });
+});

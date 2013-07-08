@@ -573,7 +573,6 @@
                     cachedInstance = ko.instanceCache.get(url);
                 }
 
-
                 if (options.overwriteDestroys &&
                     instance !== null &&
                     (cachedInstance === null ||
@@ -597,5 +596,116 @@
             }
         });
     };
+
+    // RelatedArray Class
+    ko.RelatedArray = function RelatedArray(model, options) {
+        var value = ko.observableArray([]),
+            _oldMethods = {
+                indexOf: value.indexOf,
+                push: value.push,
+                unshift: value.unshift,
+                remove: value.remove,
+                removeAll: value.removeAll,
+                destroy: value.destroy,
+                destroyAll: value.destroyAll
+            },
+            _buildInstance = function _buildInstance(obj) {
+                var val, url, instance;
+
+                val = model.__super__.parse.call(model.prototype, obj || {});
+                url = model.__super__.url.call(model.prototype, val[model.__super__.idAttribute])
+
+                if (options.useCache) {
+                    instance = ko.instanceCache.get(url) || new model(val);
+                } else {
+                    instance = new model(val);
+                }
+
+                if (options.useCache) {
+                    ko.instanceCache.set(instance.url(), instance, options.lifespan);
+                }
+
+                return instance;
+            };
+
+        options = options || {};
+        options.useCache = options.useCache === undefined ? true : options.useCache;
+
+        value.indexOf = function indexOf(obj) {
+            var indexes = [],
+                id;
+
+            if (obj instanceof model) {
+                return _oldMethods.indexOf.call(value, obj);
+            } else if (typeof obj === 'object') {
+                id = obj[model.__super__.idAttribute];
+            } else {
+                id = obj;
+            }
+
+            indexes = ko.utils.arrayMap(value(), function (instance) { return instance.get(instance.idAttribute); });
+            return indexes.indexOf(id);
+        };
+
+        value.push = function push(obj) {
+            if (!(obj instanceof model)) {
+                obj = _buildInstance(obj);
+            }
+
+            return _oldMethods.push.call(value, obj);
+        };
+
+        value.unshift = function unshift(obj) {
+            if (!(obj instanceof model)) {
+                obj = _buildInstance(obj);
+            }
+
+            return _oldMethods.unshift.call(value, obj);
+        };
+
+        value.remove = function remove(obj) {
+            var id;
+
+            if (obj instanceof model || typeof obj === 'function') {
+                return _oldMethods.remove.call(value, obj);
+            } else if (typeof obj === 'object') {
+                id = obj[model.__super__.idAttribute];
+            } else {
+                id = obj;
+            }
+
+            return _oldMethods.remove.call(
+                value,
+                function (instance) { return instance.get(instance.idAttribute) === id; }
+            );
+        };
+
+        value.removeAll = function removeAll(obj) {
+            return ko.utils.arrayMap(value(), value.remove);
+        };
+
+        value.destroy = function destroy(obj) {
+            var id;
+
+            if (obj instanceof model || typeof obj === 'function') {
+                return _oldMethods.destroy.call(value, obj);
+            } else if (typeof obj === 'object') {
+                id = obj[model.__super__.idAttribute];
+            } else {
+                id = obj;
+            }
+
+            return _oldMethods.destroy.call(
+                value,
+                function (instance) { return instance.get(instance.idAttribute) === id; }
+            );
+        };
+
+        value.destroyAll = function destroyAll(obj) {
+            return ko.utils.arrayMap(value(), value.destroy);
+        };
+
+        return value;
+    }
 })
 })(window, document, navigator, window["jQuery"]);
