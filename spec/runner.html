@@ -25,11 +25,8 @@
 
 
         <!-- knockout -->
-        <script type="text/javascript" src="lib/knockout.js"></script>
+        <script type="text/javascript" src="lib/knockout-2.3.0.js"></script>
         <script type="text/javascript">
-            // By default, we run the tests against knockout-raw.js, but you can specify an alternative test
-            // subject as a querystring parameter, e.g., runner.html?src=build/output/knockout-latest.js.
-            // This is used by our automated test runners (PhantomJS and Testling CI).
             (function() {
                 var koFilenameParam = location.href.match(/[?&]src=([^&]+)/);
                 jasmine.addScriptReference("../" + (koFilenameParam ? koFilenameParam[1] : "knockout.model.js"));
@@ -48,17 +45,49 @@
     </head>
     <body>
         <script type="text/javascript">
-          (function() {
-            var jasmineEnv = jasmine.getEnv();
-            jasmineEnv.updateInterval = 500;
+            (function() {
+                var propname;
 
-            var htmlReporter = new jasmine.HtmlReporter();
-            jasmineEnv.addReporter(htmlReporter);
-            jasmineEnv.specFilter = htmlReporter.specFilter;
+                window.proplist = {
+                    proplist: true
+                };
+                for (propname in window) {
+                    if (propname !== "proplist") {
+                      window.proplist[propname] = true;
+                    }
+                }
 
-            jasmineEnv.addReporter(new jasmine.TapReporter()); // For Testling CI
-            jasmineEnv.execute();
-          })();
+                var jasmineEnv = jasmine.getEnv();
+                jasmineEnv.updateInterval = 500;
+
+                var htmlReporter = new jasmine.HtmlReporter();
+                jasmineEnv.addReporter(htmlReporter);
+                jasmineEnv.specFilter = htmlReporter.specFilter;
+
+                jasmineEnv.addReporter(new jasmine.TapReporter()); // For Testling CI
+                jasmineEnv.execute();
+
+                // Report created Global objects
+                function checkGlobals() {
+                    if (jasmineEnv.currentRunner().queue.running) {
+                        setTimeout(checkGlobals, 100);
+                        return;
+                    }
+
+                    if (!window.proplist) {
+                        return;
+                    }
+
+                    for (propname in window) {
+                        if (!(window.proplist[propname])) {
+                            window.proplist[propname] = true;
+                            console.log("Global variable detected: " + propname);
+                        }
+                    }
+                }
+
+                setTimeout(checkGlobals, 100);
+            })();
         </script>
     </body>
 </html>

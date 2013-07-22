@@ -110,6 +110,8 @@
 
         // TODO - this could get ugly if there are a lot of instances.  Run through this piece-wise.
         this.interval = setInterval(function() {
+            var key;
+
             for (key in this.cache) {
                 this.get(key);
             }
@@ -140,10 +142,9 @@
 
     // Model Class
     ko.Model = function(attributes, options) {
-        var defaults,
-            attrs = attributes || {},
-            options = options || {},
+        var attrs = attributes || {},
             prop;
+        options = options || {};
 
         this._internals = {
             backupValues: {},
@@ -160,10 +161,6 @@
             if (options.hasOwnProperty(prop)) {
                 this[prop] = options[prop];
             }
-        }
-
-        if (options.parse) {
-            attrs = this.parse(attrs, options) || {};
         }
 
         // Fill in defaults for any non-supplied properties
@@ -203,7 +200,8 @@
 
         // Set a hash of properties
         set: function(attrs, options) {
-            var i, item, new_value, options = options || {};
+            var i, item, slot, new_value;
+            options = options || {};
 
             if (options.parse) {
                 attrs = this.parse(attrs, options) || {};
@@ -211,12 +209,13 @@
 
             for (i in attrs) {
                 item = attrs[i];
-                if (ko.isWriteableObservable(this[i])) {
+                slot = this[i];
+                if (ko.isWriteableObservable(slot)) {
                     new_value = typeof item === "string" && item.match(ESCAPED_HTML_RE) !== false ? unescapeHtml(item) : item;
                     if (new_value !== this[i]()) {
                         this[i](new_value);
                     }
-                } else if (this[i] !== undefined && ko.isObservable(this[i]) === false) {
+                } else if (slot !== undefined && ko.isObservable(slot) === false && typeof slot !== 'function') {
                     new_value = typeof item === "string" && item.match(ESCAPED_HTML_RE) !== false ? unescapeHtml(item) : item;
                     this[i] = new_value;
                 } else {
@@ -389,9 +388,9 @@
                 params.url = this.url();
             }
 
-            if (options.data === null && ['create', 'update'].indexOf(method) !== -1) {
+            if (options.data === null && ['create', 'update'].indexOf(method_name) !== -1) {
                 params.contentType = 'application/json';
-                params.data = JSON.stringify(this.toJSON());
+                params.data = this.toJSON();
             }
 
             if (params.type !== 'GET') {
@@ -417,7 +416,7 @@
                 }
                 model._lastFetched = new Date();
                 if (success) {
-                    success(resp, options);
+                    success.call(model, resp, options);
                 }
             };
 
@@ -514,7 +513,6 @@
             }
 
             this._backup();
-            return;
         },
 
         commit: function() {
