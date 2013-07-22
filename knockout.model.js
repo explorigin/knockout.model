@@ -149,8 +149,13 @@
         this._internals = {
             backupValues: {},
             attrSubscriberCache: {},
-            subscriptions: [],
-            attrSubscriptions: []
+            attrSubscriptions: [],
+            subscriptions: {
+                change: [],
+                beforeFetch: [],
+                beforeSave: [],
+                beforeDestroy: []
+            },
         };
 
         this._destroy = false;
@@ -232,9 +237,8 @@
             return this.set(this.defaults);
         },
 
-        subscribe: function(callback, target) {
+        subscribe: function(callback, target, event) {
             var boundCallback = target ? callback.bind(target) : callback,
-                subscriptions = this._internals.subscriptions,
                 attrSubscriptions = this._internals.attrSubscriptions,
                 subscription = new Subscription(this, boundCallback, function () {
                         ko.utils.arrayRemoveItem(subscriptions, subscription);
@@ -247,7 +251,15 @@
                     }.bind(this)),
                 changeCache = {},
                 interval = null,
-                self = this;
+                self = this,
+                notify = function () {
+                    self.notifySubscribers(changeCache, 'change');
+                    changeCache = {};
+                },
+                subscriptions;
+
+            event = event || 'change';
+            subscriptions = this._internals.subscriptions[event];
 
             if (attrSubscriptions.length === 0) {
                 ko.utils.arrayForEach(this.subscribableAttributes, function (attr) {
@@ -261,11 +273,12 @@
                             clearTimeout(interval);
                         }
 
-                        interval = setTimeout(function() {
-                            self.notifySubscribers(changeCache);
-                            changeCache = {};
-                        }, self.subscriptionDebounce);
-                    }));
+                        if (this.subscriptionDebounce > 0) {
+                            interval = setTimeout(notify, this.subscriptionDebounce);
+                        } else {
+                            notify();
+                        }
+                    }, self, event));
                 });
             }
 
@@ -273,10 +286,10 @@
             return subscription;
         },
 
-        notifySubscribers: function(value) {
-            ko.utils.arrayForEach(this._internals.subscriptions, function (subscription) {
+        notifySubscribers: function(value, event) {
+            ko.utils.arrayForEach(this._internals.subscriptions[event], function (subscription) {
                 if (subscription && (subscription.isDisposed !== true)) {
-                    subscription.callback(value);
+                    subscription.callback.call(subscription.target, value, subscription);
                 }
             });
         },
@@ -302,7 +315,18 @@
 
         // Return an object of the properties and values minus those specified in transientAttributes
         _clone: function(args) {
-            var i, param, temp, transientAttributes, attr, len, _ref;
+            var i, param, temp, transientAttributes, attr, len, _ref, j, jLen, value,
+                _resolveSingleValue = function(value){
+                    if (value instanceof ko.Model) {
+                        return value.url();
+                    }
+
+                    if (value && value.toJS) {
+                        return value.toJS.apply(value);
+                    }
+
+                    return JSON.parse(JSON.stringify(value));
+                };
             args = args || {};
 
             transientAttributes = {
@@ -331,14 +355,14 @@
                         // Only include _destroy if it is set.
                         delete temp[i];
 
-                    } else if (typeof attr === 'object') {
-                        if (attr instanceof ko.Model) {
-                            temp[i] = attr.url();
-                        } else if (attr && attr.toJS) {
-                            temp[i] = attr.toJS.apply(attr);
-                        } else {
-                            temp[i] = JSON.parse(JSON.stringify(attr));
+                    } else if (toString.call(attr) === "[object Array]") {
+                        value = [];
+                        for(j=0, jLen=attr.length; j < jLen; j++){
+                            value.push(_resolveSingleValue(attr[j]));
                         }
+                        temp[i] = value;
+                    } else if (typeof attr === 'object') {
+                        temp[i] = _resolveSingleValue(attr);
                     }
                 }
             }
@@ -420,7 +444,8 @@
                 }
             };
 
-            // wrapError(this, options);
+            this.notifySubscribers(this, 'beforeFetch');
+
             return this._sync('read', options);
         },
 
@@ -462,18 +487,23 @@
                 }
             };
 
-            // wrapError(this, options);
+            this.notifySubscribers(this, 'beforeSave');
+
             return this._sync(this.isNew() ? 'create' : 'update', options);
         },
 
         destroy: function() {
+            this.notifySubscribers(this, 'beforeDestroy');
+
             ko.utils.arrayForEach(this._internals.attrSubscriptions, function (subscription) {
                 subscription.dispose();
             });
             this._internals.attrSubscriptions = [];
 
-            ko.utils.arrayForEach(this._internals.subscriptions, function (subscription) {
-                subscription.dispose();
+            ko.utils.objectForEach(this._internals.subscriptions, function (event_name, events) {
+                ko.utils.arrayForEach(events, function (subscription) {
+                    subscription.dispose();
+                });
             });
 
             this._destroy = true;
@@ -548,23 +578,29 @@
 
     // RelatedModel Class
     ko.RelatedModel = function RelatedModel(model, options) {
-        var value = ko.observable(null);
+        var value = ko.observable(null),
+            setCache,
+            related;
 
         options = options || {};
         options.useCache = options.useCache === undefined ? true : options.useCache;
 
-        return ko.computed({
+        setCache = function setCache() {
+            ko.instanceCache.set(this.url(), this, options.lifespan);
+        };
+
+        related = ko.computed({
             read: value,
             write: function(val) {
                 var instance = value(),
                     url = null,
                     cachedInstance = null;
 
-                if (val instanceof model) {
+                if (val instanceof related.model) {
                     url = val.url()
                 } else {
-                    val = model.__super__.parse.call(model.prototype, val || {});
-                    url = model.__super__.url.call(model.prototype, val[model.__super__.idAttribute])
+                    val = related.model.prototype.parse.call(related.model.prototype, val || {});
+                    url = related.model.prototype.url.call(related.model.prototype, val[related.model.prototype.idAttribute])
                 }
 
                 if (options.useCache) {
@@ -578,21 +614,28 @@
                         instance.destroy();
                 }
 
-                if (val instanceof model) {
+                if (val instanceof related.model) {
                     instance = val;
                 } else if (cachedInstance) {
                     instance = cachedInstance;
                 } else {
-                    instance = new model(val);
+                    instance = new related.model(val, options);
+                    if (options.autoFetch !== false && instance._lastFetched === null && instance.get(related.model.prototype.idAttribute)) {
+                        instance.fetch({success: setCache});
+                    }
                 }
 
-                if (options.useCache) {
-                    ko.instanceCache.set(instance.url(), instance, options.lifespan);
+                if (options.useCache && instance[instance.idAttribute]) {
+                    setCache.call(instance);
                 }
 
                 value(instance);
             }
-        });
+        }, this, {deferEvaluation: true});
+
+        related.model = model;
+
+        return related;
     };
 
     // RelatedArray Class
@@ -607,36 +650,50 @@
                 destroy: value.destroy,
                 destroyAll: value.destroyAll
             },
-            _buildInstance = function _buildInstance(obj) {
-                var val, url, instance;
+            setCache,
+            changeSubscription;
 
-                val = model.__super__.parse.call(model.prototype, obj || {});
-                url = model.__super__.url.call(model.prototype, val[model.__super__.idAttribute])
+        setCache = function setCache() {
+            ko.instanceCache.set(this.url(), this, options.lifespan);
+        };
 
-                if (options.useCache) {
-                    instance = ko.instanceCache.get(url) || new model(val);
-                } else {
-                    instance = new model(val);
+        value.buildInstance = function buildInstance(obj) {
+            var val, url, instance;
+
+            if (obj instanceof value.model) {
+                return obj;
+            }
+
+            val = value.model.prototype.parse.call(value.model.prototype, obj || {});
+            url = value.model.prototype.url.call(value.model.prototype, val[value.model.prototype.idAttribute]);
+
+            if (options.useCache) {
+                instance = ko.instanceCache.get(url) || new value.model(val);
+            } else {
+                instance = new value.model(val);
+                if (options.autoFetch !== false && instance._lastFetched === null && instance.get(value.model.prototype.idAttribute)) {
+                    instance.fetch({success: setCache});
                 }
+            }
 
-                if (options.useCache) {
-                    ko.instanceCache.set(instance.url(), instance, options.lifespan);
-                }
+            if (options.useCache && instance[instance.idAttribute]) {
+                setCache.call(instance);
+            }
 
-                return instance;
-            };
+            return instance;
+        };
 
         options = options || {};
         options.useCache = options.useCache === undefined ? true : options.useCache;
 
         value.indexOf = function indexOf(obj) {
-            var indexes = [],
+            var indexes,
                 id;
 
-            if (obj instanceof model) {
+            if (obj instanceof value.model) {
                 return _oldMethods.indexOf.call(value, obj);
             } else if (typeof obj === 'object') {
-                id = obj[model.__super__.idAttribute];
+                id = obj[value.model.__super__.idAttribute];
             } else {
                 id = obj;
             }
@@ -646,17 +703,13 @@
         };
 
         value.push = function push(obj) {
-            if (!(obj instanceof model)) {
-                obj = _buildInstance(obj);
-            }
+            obj = value.buildInstance(obj);
 
             return _oldMethods.push.call(value, obj);
         };
 
         value.unshift = function unshift(obj) {
-            if (!(obj instanceof model)) {
-                obj = _buildInstance(obj);
-            }
+            obj = value.buildInstance(obj);
 
             return _oldMethods.unshift.call(value, obj);
         };
@@ -664,10 +717,10 @@
         value.remove = function remove(obj) {
             var id;
 
-            if (obj instanceof model || typeof obj === 'function') {
+            if (obj instanceof value.model || typeof obj === 'function') {
                 return _oldMethods.remove.call(value, obj);
             } else if (typeof obj === 'object') {
-                id = obj[model.__super__.idAttribute];
+                id = obj[value.model.__super__.idAttribute];
             } else {
                 id = obj;
             }
@@ -685,10 +738,10 @@
         value.destroy = function destroy(obj) {
             var id;
 
-            if (obj instanceof model || typeof obj === 'function') {
+            if (obj instanceof value.model || typeof obj === 'function') {
                 return _oldMethods.destroy.call(value, obj);
             } else if (typeof obj === 'object') {
-                id = obj[model.__super__.idAttribute];
+                id = obj[value.model.__super__.idAttribute];
             } else {
                 id = obj;
             }
@@ -702,6 +755,25 @@
         value.destroyAll = function destroyAll(obj) {
             return ko.utils.arrayMap(value(), value.destroy);
         };
+
+        changeSubscription = value.subscribe(function(val) {
+            var i = val.length, item;
+            while (i--) {
+                if (!(val[i] instanceof value.model)) {
+                    item = value.buildInstance(val[i]);
+                    if (options.autoFetch !== false && item._lastFetched === null && item.get(value.model.prototype.idAttribute)) {
+                        item.fetch()
+                    }
+                    val[i] = item;
+                }
+            }
+        });
+
+        value.dispose = function() {
+            changeSubscription.dispose();
+        };
+
+        value.model = model;
 
         return value;
     }

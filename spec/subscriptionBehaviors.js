@@ -53,19 +53,23 @@ describe('Subscription', function() {
             shelly = new Intern(),
             output = null;
 
-        expect(shelly._internals.subscriptions.length).toEqual(0);
+        ko.utils.objectForEach(shelly._internals.subscriptions, function (event_name, events) {
+            expect(events.length).toEqual(0);
+        });
         expect(shelly._internals.attrSubscriptions.length).toEqual(0);
 
         shelly.subscribe(function(value) {
             output = value;
         });
 
-        expect(shelly._internals.subscriptions.length).toEqual(1);
+        expect(shelly._internals.subscriptions['change'].length).toEqual(1);
         expect(shelly._internals.attrSubscriptions.length).toEqual(1);
 
         shelly.destroy();
 
-        expect(shelly._internals.subscriptions.length).toEqual(0);
+        ko.utils.objectForEach(shelly._internals.subscriptions, function (event_name, events) {
+            expect(events.length).toEqual(0);
+        });
         expect(shelly._internals.attrSubscriptions.length).toEqual(0);
     });
 });
