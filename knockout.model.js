@@ -586,7 +586,9 @@
         options.useCache = options.useCache === undefined ? true : options.useCache;
 
         setCache = function setCache() {
-            ko.instanceCache.set(this.url(), this, options.lifespan);
+            if (options.useCache && this[this.idAttribute]) {
+                ko.instanceCache.set(this.url(), this, options.lifespan);
+            }
         };
 
         related = ko.computed({
@@ -625,9 +627,7 @@
                     }
                 }
 
-                if (options.useCache && instance[instance.idAttribute]) {
-                    setCache.call(instance);
-                }
+                setCache.call(instance);
 
                 value(instance);
             }
@@ -654,7 +654,9 @@
             changeSubscription;
 
         setCache = function setCache() {
-            ko.instanceCache.set(this.url(), this, options.lifespan);
+            if (options.useCache && this[this.idAttribute]) {
+                ko.instanceCache.set(this.url(), this, options.lifespan);
+            }
         };
 
         value.buildInstance = function buildInstance(obj) {
@@ -676,9 +678,7 @@
                 }
             }
 
-            if (options.useCache && instance[instance.idAttribute]) {
-                setCache.call(instance);
-            }
+            setCache.call(instance);
 
             return instance;
         };
@@ -762,7 +762,7 @@
                 if (!(val[i] instanceof value.model)) {
                     item = value.buildInstance(val[i]);
                     if (options.autoFetch !== false && item._lastFetched === null && item.get(value.model.prototype.idAttribute)) {
-                        item.fetch()
+                        item.fetch({success: setCache})
                     }
                     val[i] = item;
                 }
