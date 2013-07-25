@@ -580,7 +580,6 @@
     ko.RelatedModel = function RelatedModel(model, options) {
         var value = ko.observable(null),
             setCache,
-            readMethod = value,
             related;
 
         options = options || {};
@@ -592,18 +591,8 @@
             }
         };
 
-        if (options.autoFetch && options.autoFetch.toLowerCase() === 'onread') {
-            readMethod = function fetchOnRead() {
-                var instance = value();
-                if (instance && instance._lastFetched === null && instance.get(instance.idAttribute)) {
-                    instance.fetch({success: setCache});
-                }
-                return instance;
-            };
-        }
-
         related = ko.computed({
-            read: readMethod,
+            read: value,
             write: function(val) {
                 var instance = value(),
                     url = null,
@@ -633,7 +622,7 @@
                     instance = cachedInstance;
                 } else {
                     instance = new related.model(val, options);
-                    if (options.autoFetch === true && instance._lastFetched === null && instance.get(related.model.prototype.idAttribute)) {
+                    if (options.autoFetch !== false && instance._lastFetched === null && instance.get(related.model.prototype.idAttribute)) {
                         instance.fetch({success: setCache});
                     }
                 }
@@ -641,10 +630,8 @@
                 setCache.call(instance);
 
                 value(instance);
-            },
-            owner: this,
-            deferEvaluation: true
-        });
+            }
+        }, this, {deferEvaluation: true});
 
         related.model = model;
 
@@ -666,9 +653,6 @@
             setCache,
             changeSubscription;
 
-        options = options || {};
-        options.useCache = options.useCache === undefined ? true : options.useCache;
-
         setCache = function setCache() {
             if (options.useCache && this[this.idAttribute]) {
                 ko.instanceCache.set(this.url(), this, options.lifespan);
@@ -689,7 +673,7 @@
                 instance = ko.instanceCache.get(url) || new value.model(val);
             } else {
                 instance = new value.model(val);
-                if (options.autoFetch === true && instance._lastFetched === null && instance.get(value.model.prototype.idAttribute)) {
+                if (options.autoFetch !== false && instance._lastFetched === null && instance.get(value.model.prototype.idAttribute)) {
                     instance.fetch({success: setCache});
                 }
             }
@@ -698,6 +682,9 @@
 
             return instance;
         };
+
+        options = options || {};
+        options.useCache = options.useCache === undefined ? true : options.useCache;
 
         value.indexOf = function indexOf(obj) {
             var indexes,
@@ -774,7 +761,7 @@
             while (i--) {
                 if (!(val[i] instanceof value.model)) {
                     item = value.buildInstance(val[i]);
-                    if (options.autoFetch === true && item._lastFetched === null && item.get(value.model.prototype.idAttribute)) {
+                    if (options.autoFetch !== false && item._lastFetched === null && item.get(value.model.prototype.idAttribute)) {
                         item.fetch({success: setCache})
                     }
                     val[i] = item;

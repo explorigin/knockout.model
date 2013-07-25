@@ -1,6 +1,6 @@
 
 describe('Network', function() {
-    it('Should load by default (autoFetch)', function () {
+    it('Should load', function () {
         var Intern = ko.Model.extend({
                 initialize: function () {
                     var self = this;

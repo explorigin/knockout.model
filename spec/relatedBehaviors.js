@@ -18,7 +18,6 @@ describe('Related Models', function() {
         expect(shelly.boss()[shelly.idAttribute]).toEqual(1);
     });
 
-
     it('Should always be an instance', function () {
         var Intern = ko.Model.extend({
                 initialize: function () {
@@ -36,7 +35,6 @@ describe('Related Models', function() {
 
         expect(shelly.boss()[Intern.prototype.idAttribute]).toEqual(2);
     });
-
 
     it('Should always the same if a cache is used', function () {
         var Intern = ko.Model.extend({
@@ -92,7 +90,6 @@ describe('Related Models', function() {
 
         expect(shelly.boss().first_name()).toNotEqual(boss.first_name());
     });
-
 
     it('Should not destroy if cache is used to lookup the same instance', function () {
         var Intern = ko.Model.extend({
@@ -151,77 +148,6 @@ describe('Related Models', function() {
         boss.first_name('bob');
 
         expect(shelly.boss().first_name()).toNotEqual(boss.first_name());
-    });
-
-
-    it('Should load when accessed (autoFetch === "onRead")', function () {
-        var Intern = ko.Model.extend({
-                transientAttributes: ['boss'],
-                initialize: function () {
-                    var self = this;
-
-                    this.first_name = ko.observable();
-                    this.last_name = ko.observable();
-                    this.boss = ko.RelatedModel(Intern, {autoFetch: 'onRead'});
-                },
-
-                urlRoot: '/internsl'
-            }),
-            shelly = new Intern({id: 1});
-
-
-        spyOn($, 'ajax').andCallFake(function(options) {
-            setTimeout(function () {
-                expect(options.type).toEqual('GET');
-                if (options.url ==='/internsl/1') {
-                    options.success({
-                        id: 1,
-                        first_name: "Shelly",
-                        last_name: "Smith",
-                        boss: 2
-                    });
-                } else if  (options.url ==='/internsl/2') {
-                    options.success({
-                        id: 2,
-                        first_name: "Bob",
-                        last_name: "Jones",
-                        boss: null
-                    });
-                }
-            });
-        });
-
-        runs(function() {
-            shelly.fetch();
-        });
-
-        waitsFor(function() {
-            return shelly._lastFetched !== null;
-        });
-
-        runs(function() {
-            expect(shelly.toJS()).toEqual({
-                    first_name: "Shelly",
-                    last_name: "Smith",
-                    id: 1
-                });
-            expect(shelly._lastFetched).toNotEqual(null);
-
-            // Kick off the autoFetch
-            shelly.boss();
-        });
-
-        waitsFor(function() {
-            return shelly.boss()._lastFetched !== null;
-        });
-
-        runs(function() {
-            expect(shelly.boss().toJS()).toEqual({
-                first_name: "Bob",
-                last_name: "Jones",
-                id: 2
-            });
-        });
     });
 });
 
