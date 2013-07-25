@@ -663,9 +663,7 @@
                 destroy: value.destroy,
                 destroyAll: value.destroyAll
             },
-            readMethod = value,
             setCache,
-            relatedArray,
             changeSubscription;
 
         options = options || {};
@@ -677,52 +675,21 @@
             }
         };
 
-        if (options.autoFetch && options.autoFetch.toLowerCase() === 'onread') {
-            readMethod = function fetchOnRead() {
-                var instances = value();
-                ko.utils.arrayForEach(instances, function(instance) {
-                    if (instance && instance._lastFetched === null && instance.get(instance.idAttribute)) {
-                        instance.fetch({success: setCache});
-                    }
-                });
-                return instances;
-            };
-        }
-
-        relatedArray = ko.computed({
-            read: readMethod,
-            write: function(val) {
-                var i = val.length, item;
-
-                while (i--) {
-                    if (!(val[i] instanceof relatedArray.model)) {
-                        item = relatedArray.buildInstance(val[i]);
-                        if (options.autoFetch === true && item._lastFetched === null && item.get(relatedArray.model.prototype.idAttribute)) {
-                            item.fetch({success: setCache})
-                        }
-                        val[i] = item;
-                    }
-                }
-            },
-            owner: this,
-            deferEvaluation: true
-        });
-
-        relatedArray.buildInstance = function buildInstance(obj) {
+        value.buildInstance = function buildInstance(obj) {
             var val, url, instance;
 
-            if (obj instanceof relatedArray.model) {
+            if (obj instanceof value.model) {
                 return obj;
             }
 
-            val = relatedArray.model.prototype.parse.call(relatedArray.model.prototype, obj || {});
-            url = relatedArray.model.prototype.url.call(relatedArray.model.prototype, val[relatedArray.model.prototype.idAttribute]);
+            val = value.model.prototype.parse.call(value.model.prototype, obj || {});
+            url = value.model.prototype.url.call(value.model.prototype, val[value.model.prototype.idAttribute]);
 
             if (options.useCache) {
-                instance = ko.instanceCache.get(url) || new relatedArray.model(val);
+                instance = ko.instanceCache.get(url) || new value.model(val);
             } else {
-                instance = new relatedArray.model(val);
-                if (options.autoFetch === true && instance._lastFetched === null && instance.get(relatedArray.model.prototype.idAttribute)) {
+                instance = new value.model(val);
+                if (options.autoFetch === true && instance._lastFetched === null && instance.get(value.model.prototype.idAttribute)) {
                     instance.fetch({success: setCache});
                 }
             }
@@ -732,14 +699,14 @@
             return instance;
         };
 
-        relatedArray.indexOf = function indexOf(obj) {
+        value.indexOf = function indexOf(obj) {
             var indexes,
                 id;
 
-            if (obj instanceof relatedArray.model) {
+            if (obj instanceof value.model) {
                 return _oldMethods.indexOf.call(value, obj);
             } else if (typeof obj === 'object') {
-                id = obj[relatedArray.model.__super__.idAttribute];
+                id = obj[value.model.__super__.idAttribute];
             } else {
                 id = obj;
             }
@@ -748,25 +715,25 @@
             return indexes.indexOf(id);
         };
 
-        relatedArray.push = function push(obj) {
-            obj = relatedArray.buildInstance(obj);
+        value.push = function push(obj) {
+            obj = value.buildInstance(obj);
 
             return _oldMethods.push.call(value, obj);
         };
 
-        relatedArray.unshift = function unshift(obj) {
-            obj = relatedArray.buildInstance(obj);
+        value.unshift = function unshift(obj) {
+            obj = value.buildInstance(obj);
 
             return _oldMethods.unshift.call(value, obj);
         };
 
-        relatedArray.remove = function remove(obj) {
+        value.remove = function remove(obj) {
             var id;
 
-            if (obj instanceof relatedArray.model || typeof obj === 'function') {
+            if (obj instanceof value.model || typeof obj === 'function') {
                 return _oldMethods.remove.call(value, obj);
             } else if (typeof obj === 'object') {
-                id = obj[relatedArray.model.__super__.idAttribute];
+                id = obj[value.model.__super__.idAttribute];
             } else {
                 id = obj;
             }
@@ -777,17 +744,17 @@
             );
         };
 
-        relatedArray.removeAll = function removeAll(obj) {
-            return ko.utils.arrayMap(value(), relatedArray.remove);
+        value.removeAll = function removeAll(obj) {
+            return ko.utils.arrayMap(value(), value.remove);
         };
 
-        relatedArray.destroy = function destroy(obj) {
+        value.destroy = function destroy(obj) {
             var id;
 
-            if (obj instanceof relatedArray.model || typeof obj === 'function') {
+            if (obj instanceof value.model || typeof obj === 'function') {
                 return _oldMethods.destroy.call(value, obj);
             } else if (typeof obj === 'object') {
-                id = obj[relatedArray.model.__super__.idAttribute];
+                id = obj[value.model.__super__.idAttribute];
             } else {
                 id = obj;
             }
@@ -798,13 +765,30 @@
             );
         };
 
-        relatedArray.destroyAll = function destroyAll(obj) {
-            return ko.utils.arrayMap(value(), relatedArray.destroy);
+        value.destroyAll = function destroyAll(obj) {
+            return ko.utils.arrayMap(value(), value.destroy);
         };
 
-        relatedArray.model = model;
+        changeSubscription = value.subscribe(function(val) {
+            var i = val.length, item;
+            while (i--) {
+                if (!(val[i] instanceof value.model)) {
+                    item = value.buildInstance(val[i]);
+                    if (options.autoFetch === true && item._lastFetched === null && item.get(value.model.prototype.idAttribute)) {
+                        item.fetch({success: setCache})
+                    }
+                    val[i] = item;
+                }
+            }
+        });
 
-        return relatedArray;
+        value.dispose = function() {
+            changeSubscription.dispose();
+        };
+
+        value.model = model;
+
+        return value;
     }
 })
 })(window, document, navigator, window["jQuery"]);
