@@ -18,7 +18,8 @@
             'delete': 'DELETE',
             'read':   'GET'
         },
-        InstanceCache;
+        InstanceCache,
+        setCache;
 
     // Utility Methods
     //////////////////
@@ -106,7 +107,7 @@
     // Instance Cache
     InstanceCache = function InstanceCache(lifespan) {
         this.cache = {};
-        this.lifespan = lifespan || 5;
+        this.lifespan = lifespan || 60;
 
         // TODO - this could get ugly if there are a lot of instances.  Run through this piece-wise.
         this.interval = setInterval(function() {
@@ -139,14 +140,23 @@
 
     ko.instanceCache = new InstanceCache();
 
+    setCache = function setCache() {
+        if (this._internals.options.useCache && !this.isNew()) {
+            ko.instanceCache.set(this.url(), this, this._internals.options.lifespan);
+        }
+    };
 
     // Model Class
     ko.Model = function(attributes, options) {
         var attrs = attributes || {},
-            prop;
+            prop,
+            action;
+
         options = options || {};
 
         this._internals = {
+            fetching: false,
+            options: options,
             backupValues: {},
             attrSubscriberCache: {},
             attrSubscriptions: [],
@@ -183,6 +193,48 @@
         }
 
         this.set(attrs, options);
+
+        if (typeof options.autoFetch === 'string' && options.autoFetch.toLowerCase() === 'onread') {
+            this._internals.tempProperties = {};
+
+            function autoFetchFactory(property) {
+                return function autoFetch(val) {
+                    var params = undefined,
+                        retVal;
+
+                    if (val !== undefined) {
+                        params = {success: function() {
+                            this[property](val);
+                        }};
+                        retVal = this._internals.tempProperties[property](val);
+                    } else {
+                        retVal = ko.unwrap(this._internals.tempProperties[property]);
+                    }
+
+                    if (this._lastFetched === null) {
+                        this.fetch(params);
+                    }
+
+                    return retVal;
+                }
+            }
+
+            for (prop in this) {
+                if (!this.hasOwnProperty(prop) || !ko.isObservable(this[prop])) {
+                    continue
+                }
+
+                this._internals.tempProperties[prop] = this[prop];
+                action = autoFetchFactory(prop);
+
+                this[prop] = ko.computed({
+                    read: action,
+                    write: action,
+                    owner: this,
+                    deferEvaluation: true
+                });
+            }
+        }
     };
 
     extend(ko.Model.prototype, {
@@ -200,7 +252,7 @@
 
         // Get a named property
         get: function(attr) {
-            return ko.utils.unwrapObservable(this[attr]);
+            return ko.unwrap(this[attr]);
         },
 
         // Set a hash of properties
@@ -315,7 +367,7 @@
 
         // Return an object of the properties and values minus those specified in transientAttributes
         _clone: function(args) {
-            var i, param, temp, transientAttributes, attr, len, _ref, j, jLen, value,
+            var i, temp, transientAttributes, attr, len, _ref, j, jLen, value,
                 _resolveSingleValue = function(value){
                     if (value instanceof ko.Model) {
                         return value.url();
@@ -336,8 +388,7 @@
 
             _ref = this.transientAttributes;
             for (i = 0, len = _ref.length; i < len; ++i) {
-                param = _ref[i];
-                transientAttributes[param] = false;
+                transientAttributes[_ref[i]] = false;
             }
 
             args = extend(transientAttributes, args);
@@ -355,7 +406,7 @@
                         // Only include _destroy if it is set.
                         delete temp[i];
 
-                    } else if (toString.call(attr) === "[object Array]") {
+                    } else if (attr instanceof Array) {
                         value = [];
                         for(j=0, jLen=attr.length; j < jLen; j++){
                             value.push(_resolveSingleValue(attr[j]));
@@ -429,24 +480,44 @@
             var model = this,
                 success;
 
+            if (model._internals.fetching !== false) {
+                return model._internals.fetching;
+            }
+
             options = options ? extend({}, options) : {};
 
             options.parse = options.parse === undefined ? true : options.parse;
             success = options.success;
 
             options.success = function(resp) {
+                var i;
+
                 if (!model.set(model.parse(resp, options), options)) {
                     return false;
                 }
+
+                if (model._internals.tempProperties !== undefined) {
+                    for (i in model._internals.tempProperties) {
+                        model[i].dispose();
+                        model[i] = model._internals.tempProperties[i];
+                    }
+
+                    delete model._internals.tempProperties;
+                }
+
+                setCache.call(model);
+
                 model._lastFetched = new Date();
                 if (success) {
                     success.call(model, resp, options);
                 }
+
+                model._internals.fetching = false;
             };
 
             this.notifySubscribers(this, 'beforeFetch');
 
-            return this._sync('read', options);
+            return model._internals.fetching = this._sync('read', options);
         },
 
         parse: function(resp, options) {
@@ -579,17 +650,10 @@
     // RelatedModel Class
     ko.RelatedModel = function RelatedModel(model, options) {
         var value = ko.observable(null),
-            setCache,
             related;
 
         options = options || {};
         options.useCache = options.useCache === undefined ? true : options.useCache;
-
-        setCache = function setCache() {
-            if (options.useCache && this[this.idAttribute]) {
-                ko.instanceCache.set(this.url(), this, options.lifespan);
-            }
-        };
 
         related = ko.computed({
             read: value,
@@ -622,8 +686,8 @@
                     instance = cachedInstance;
                 } else {
                     instance = new related.model(val, options);
-                    if (options.autoFetch !== false && instance._lastFetched === null && instance.get(related.model.prototype.idAttribute)) {
-                        instance.fetch({success: setCache});
+                    if (options.autoFetch === true && instance._lastFetched === null && !instance.isNew()) {
+                        instance.fetch();
                     }
                 }
 
@@ -650,14 +714,7 @@
                 destroy: value.destroy,
                 destroyAll: value.destroyAll
             },
-            setCache,
             changeSubscription;
-
-        setCache = function setCache() {
-            if (options.useCache && this[this.idAttribute]) {
-                ko.instanceCache.set(this.url(), this, options.lifespan);
-            }
-        };
 
         value.buildInstance = function buildInstance(obj) {
             var val, url, instance;
@@ -670,11 +727,11 @@
             url = value.model.prototype.url.call(value.model.prototype, val[value.model.prototype.idAttribute]);
 
             if (options.useCache) {
-                instance = ko.instanceCache.get(url) || new value.model(val);
+                instance = ko.instanceCache.get(url) || new value.model(val, options);
             } else {
-                instance = new value.model(val);
-                if (options.autoFetch !== false && instance._lastFetched === null && instance.get(value.model.prototype.idAttribute)) {
-                    instance.fetch({success: setCache});
+                instance = new value.model(val, options);
+                if (options.autoFetch === true && instance._lastFetched === null && instance.get(value.model.prototype.idAttribute)) {
+                    instance.fetch();
                 }
             }
 
@@ -761,8 +818,8 @@
             while (i--) {
                 if (!(val[i] instanceof value.model)) {
                     item = value.buildInstance(val[i]);
-                    if (options.autoFetch !== false && item._lastFetched === null && item.get(value.model.prototype.idAttribute)) {
-                        item.fetch({success: setCache})
+                    if (options.autoFetch === true && item._lastFetched === null && item.get(value.model.prototype.idAttribute)) {
+                        item.fetch()
                     }
                     val[i] = item;
                 }

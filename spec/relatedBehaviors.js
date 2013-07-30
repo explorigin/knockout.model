@@ -149,6 +149,78 @@ describe('Related Models', function() {
 
         expect(shelly.boss().first_name()).toNotEqual(boss.first_name());
     });
+
+    it('Should load when accessed (autoFetch === "onRead")', function () {
+        var Intern = ko.Model.extend({
+                transientAttributes: ['boss'],
+                initialize: function () {
+                    var self = this;
+
+                    this.first_name = ko.observable();
+                    this.last_name = ko.observable();
+                    this.boss = ko.RelatedModel(Intern, {autoFetch: 'onRead'});
+                },
+
+                urlRoot: '/internsl'
+            }),
+            shelly = new Intern({id: 1});
+
+
+        spyOn($, 'ajax').andCallFake(function(options) {
+            setTimeout(function () {
+                expect(options.type).toEqual('GET');
+                if (options.url ==='/internsl/1') {
+                    options.success({
+                        id: 1,
+                        first_name: "Shelly",
+                        last_name: "Smith",
+                        boss: 2
+                    });
+                } else if  (options.url ==='/internsl/2') {
+                    options.success({
+                        id: 2,
+                        first_name: "Bob",
+                        last_name: "Jones",
+                        boss: null
+                    });
+                }
+            });
+        });
+
+        runs(function() {
+            shelly.fetch();
+        });
+
+        waitsFor(function() {
+            return shelly._lastFetched !== null;
+        });
+
+        runs(function() {
+            expect(shelly.toJS()).toEqual({
+                    first_name: "Shelly",
+                    last_name: "Smith",
+                    id: 1
+                });
+            expect(shelly._lastFetched).toNotEqual(null);
+
+            expect(shelly.boss()._lastFetched).toEqual(null);
+
+            // Kick off the autoFetch
+            shelly.boss().first_name();
+        });
+
+        waitsFor(function() {
+            return shelly.boss()._lastFetched !== null;
+        });
+
+        runs(function() {
+            expect(shelly.boss().toJS()).toEqual({
+                first_name: "Bob",
+                last_name: "Jones",
+                id: 2
+            });
+        });
+    });
 });
 
 describe('RelatedArrays', function() {
@@ -262,5 +334,66 @@ describe('RelatedArrays', function() {
         expect(interns()[0]._destroy).toEqual(false);
         expect(interns()[1]._destroy).toEqual(true);
         expect(interns()[2]._destroy).toEqual(false);
+    });
+
+    it('Should load when accessed (autoFetch === "onRead")', function () {
+        var Intern = ko.Model.extend({
+                initialize: function () {
+                    this.first_name = ko.observable();
+                    this.last_name = ko.observable();
+                },
+                urlRoot: '/internsm'
+            }),
+            interns = ko.RelatedArray(Intern, {autoFetch: 'onRead'});
+
+        interns.push({id:1});
+        interns.push({id:2});
+
+        spyOn($, 'ajax').andCallFake(function(options) {
+            setTimeout(function () {
+                expect(options.type).toEqual('GET');
+                if (options.url ==='/internsm/1') {
+                    options.success({
+                        id: 1,
+                        first_name: "Shelly",
+                        last_name: "Smith"
+                    });
+                } else if  (options.url ==='/internsm/2') {
+                    options.success({
+                        id: 2,
+                        first_name: "Bob",
+                        last_name: "Jones"
+                    });
+                }
+            });
+        });
+
+        runs(function() {
+            expect(interns().length).toEqual(2);
+            expect(interns()[0]._lastFetched).toEqual(null);
+            expect(interns()[1]._lastFetched).toEqual(null);
+
+            // trigger fetching
+            interns()[0].first_name();
+            interns()[1].first_name();
+        });
+
+        waitsFor(function() {
+            return interns()[0]._lastFetched !== null && interns()[1]._lastFetched !== null;
+        });
+
+        runs(function() {
+            expect(interns()[0].toJS()).toEqual({
+                first_name: "Shelly",
+                last_name: "Smith",
+                id: 1
+            });
+
+            expect(interns()[1].toJS()).toEqual({
+                first_name: "Bob",
+                last_name: "Jones",
+                id: 2
+            });
+        });
     });
 });
