@@ -128,6 +128,17 @@
         }
     };
 
+    ko.extenders._onaccess = function (target, accessMethod) {
+        var proxy = function() {
+                accessMethod.apply(this, arguments);
+                return target.apply(this, arguments);
+            };
+
+        ko.utils.extend(proxy, target);
+
+        return proxy;
+    };
+
     // Model Class
     ko.Model = function(attributes, options) {
         var attrs = attributes || {},
@@ -177,44 +188,16 @@
         this.set(attrs, options);
 
         if (typeof options.autoFetch === 'string' && options.autoFetch.toLowerCase() === 'onread') {
-            this._internals.tempProperties = {};
-
-            function autoFetchFactory(property) {
-                return function autoFetch(val) {
-                    var params = undefined,
-                        retVal;
-
-                    if (val !== undefined) {
-                        params = {success: function() {
-                            this[property](val);
-                        }};
-                        retVal = this._internals.tempProperties[property](val);
-                    } else {
-                        retVal = ko.unwrap(this._internals.tempProperties[property]);
-                    }
-
-                    if (this._lastFetched === null) {
-                        this.fetch(params);
-                    }
-
-                    return retVal;
-                }
-            }
-
             for (prop in this) {
                 if (!this.hasOwnProperty(prop) || !ko.isObservable(this[prop])) {
                     continue
                 }
 
-                this._internals.tempProperties[prop] = this[prop];
-                action = autoFetchFactory(prop);
-
-                this[prop] = ko.computed({
-                    read: action,
-                    write: action,
-                    owner: this,
-                    deferEvaluation: true
-                });
+                this[prop] = this[prop].extend({_onaccess: function() {
+                    if (this._lastFetched === null) {
+                        this.fetch(arguments);
+                    }
+                }});
             }
         }
     };
@@ -478,15 +461,6 @@
                     return false;
                 }
 
-                if (model._internals.tempProperties !== undefined) {
-                    for (i in model._internals.tempProperties) {
-                        model[i].dispose();
-                        model[i] = model._internals.tempProperties[i];
-                    }
-
-                    delete model._internals.tempProperties;
-                }
-
                 setCache.call(model);
 
                 model._lastFetched = new Date();
@@ -555,7 +529,9 @@
 
             ko.utils.objectForEach(this._internals.subscriptions, function (event_name, events) {
                 ko.utils.arrayForEach(events, function (subscription) {
-                    subscription.dispose();
+                    if(subscription){
+                        subscription.dispose();
+                    }
                 });
             });
 
@@ -676,8 +652,10 @@
                 setCache.call(instance);
 
                 value(instance);
-            }
-        }, this, {deferEvaluation: true});
+            },
+            //deferEvaluation: true,  // this is actually causing lots of errors
+            owner: this
+        });
 
         related.model = model;
 
