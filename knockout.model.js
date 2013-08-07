@@ -420,7 +420,8 @@
             var type = METHOD_MAP[method_name],
                 params = {
                     type: type,
-                    dataType: 'json'
+                    dataType: 'json',
+                    cache: false
                 },
                 xhr;
 
