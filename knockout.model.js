@@ -105,35 +105,17 @@
 
 
     // Instance Cache
-    InstanceCache = function InstanceCache(lifespan) {
+    InstanceCache = function InstanceCache() {
         this.cache = {};
-        this.lifespan = lifespan || 60;
-
-        // TODO - this could get ugly if there are a lot of instances.  Run through this piece-wise.
-        this.interval = setInterval(function() {
-            var key;
-
-            for (key in this.cache) {
-                this.get(key);
-            }
-        }, this.lifespan);
     };
 
     InstanceCache.prototype = {
         get: function(key) {
             var value = this.cache[key];
-            if (value && (value.expires < new Date())) {
-                delete this.cache[key];
-                value = {val: null};
-            }
-            return value ? value.val : null;
+            return value ? value : null;
         },
-        set: function(key, instance, lifespan) {
-            lifespan = lifespan || this.lifespan;
-            this.cache[key] = {
-                expires: new Date((new Date()).valueOf() + (lifespan * 1000)),
-                val: instance
-            };
+        set: function(key, instance) {
+            this.cache[key] = instance;
             return instance;
         }
     };
@@ -142,7 +124,7 @@
 
     setCache = function setCache() {
         if (this._internals.options.useCache && !this.isNew()) {
-            ko.instanceCache.set(this.url(), this, this._internals.options.lifespan);
+            ko.instanceCache.set(this.url(), this);
         }
     };
 
@@ -165,7 +147,7 @@
                 beforeFetch: [],
                 beforeSave: [],
                 beforeDestroy: []
-            },
+            }
         };
 
         this._destroy = false;
@@ -663,7 +645,7 @@
                     cachedInstance = null;
 
                 if (val instanceof related.model) {
-                    url = val.url()
+                    url = val.url();
                 } else {
                     val = related.model.prototype.parse.call(related.model.prototype, val || {});
                     url = related.model.prototype.url.call(related.model.prototype, val[related.model.prototype.idAttribute])
