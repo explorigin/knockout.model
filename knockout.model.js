@@ -342,7 +342,7 @@
                         return value.toJS.apply(value);
                     }
 
-                    return JSON.parse(JSON.stringify(value));
+                    return JSON.parse(JSON.stringify(ko.unwrap(value)));
                 };
             args = args || {};
 
