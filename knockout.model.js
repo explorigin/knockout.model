@@ -621,6 +621,14 @@
                     url = null,
                     cachedInstance = null;
 
+                if (typeof related.model === 'function' && !(related.model.prototype instanceof ko.Model)) {
+                    related.model(val, function(model) {
+                        related.model = model;
+                        related(val);
+                    });
+                    return instance;
+                }
+
                 if (val instanceof related.model) {
                     url = val.url();
                 } else {
@@ -652,7 +660,7 @@
 
                 setCache.call(instance);
 
-                value(instance);
+                return value(instance);
             },
             //deferEvaluation: true,  // this is actually causing lots of errors
             owner: this

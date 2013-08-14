@@ -221,6 +221,36 @@ describe('Related Models', function() {
             });
         });
     });
+
+    it('Should load the model if a factory is passed', function () {
+        var Intern = ko.Model.extend({
+                initialize: function () {
+                    this.first_name = ko.observable();
+                    this.last_name = ko.observable();
+                },
+                urlRoot: '/internsn'
+            }),
+            flag = false,
+            modelFactory = function(val, cb) { flag = true; return cb(Intern); },
+            relatedIntern = ko.RelatedModel(modelFactory, {autoFetch: false});
+
+        runs(function() {
+            expect(relatedIntern()).toEqual(null);
+            expect(relatedIntern() instanceof Intern).toEqual(false);
+
+            // create an instance
+            relatedIntern({id: 1});
+        });
+
+        waitsFor(function() {
+            return flag;
+        });
+
+        runs(function() {
+            expect(relatedIntern() instanceof Intern).toEqual(true);
+            expect(relatedIntern().toJS()).toEqual({id: 1});
+        });
+    });
 });
 
 describe('RelatedArrays', function() {
