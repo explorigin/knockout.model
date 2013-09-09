@@ -151,6 +151,7 @@
             fetching: false,
             options: options,
             backupValues: {},
+            backupJS: {},
             attrSubscriberCache: {},
             attrSubscriptions: [],
             subscriptions: {
@@ -319,6 +320,15 @@
             var value;
             value = this.get(this.idAttribute);
             return [undefined, null, '', NaN].indexOf(value) !== -1;
+        },
+
+        // Determine if this version was saved
+        isDirty: function() {
+            return this.toJSON() !== this._internals.backupJSON;
+        },
+
+        backupJSON: function() {
+            return this._internals.backupJSON = this.toJSON();
         },
 
         // Override this to perform validation.
