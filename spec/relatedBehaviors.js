@@ -1,4 +1,28 @@
 
+// Promises for Knockout observables thanks to:
+// https://github.com/knockout/knockout/wiki/Use-an-observable-as-a-jQuery-promise
+ko.when = function(observable) {
+    var deferred = $.Deferred(),
+        value = observable.peek(),
+        subs;
+
+    if (value !== null && value !== undefined) {
+        deferred.resolve(value);
+    } else {
+        subs = observable.subscribe(function(newValue) {
+            if (newValue !== null && newValue !== undefined) {
+                subs.dispose();
+                deferred.resolve(newValue);
+            }
+        });
+    }
+    return deferred;
+};
+
+function timeString() {
+    return (new Date()).toISOString();
+}
+
 describe('Related Models', function() {
     it('Should be null until written to', function () {
         var Intern = ko.Model.extend({
@@ -7,7 +31,7 @@ describe('Related Models', function() {
                     this.last_name = ko.observable();
                     this.boss = ko.RelatedModel(Intern);
                 },
-                urlRoot: '/internsa'
+                urlRoot: timeString()
             }),
             shelly = new Intern();
 
@@ -25,7 +49,7 @@ describe('Related Models', function() {
                     this.last_name = ko.observable();
                     this.boss = ko.RelatedModel(Intern);
                 },
-                urlRoot: '/internsb'
+                urlRoot: timeString()
             }),
             shelly = new Intern();
 
@@ -36,14 +60,14 @@ describe('Related Models', function() {
         expect(shelly.boss()[Intern.prototype.idAttribute]).toEqual(2);
     });
 
-    it('Should always the same if a cache is used', function () {
+    it('Should always be the same if a cache is used', function () {
         var Intern = ko.Model.extend({
                 initialize: function () {
                     this.first_name = ko.observable();
                     this.last_name = ko.observable();
                     this.boss = ko.RelatedModel(Intern, {useCache:true});
                 },
-                urlRoot: '/internsc'
+                urlRoot: timeString()
             }),
             shelly = new Intern(),
             boss = null;
@@ -71,7 +95,7 @@ describe('Related Models', function() {
                     this.last_name = ko.observable();
                     this.boss = ko.RelatedModel(Intern, {useCache:false});
                 },
-                urlRoot: '/internsd'
+                urlRoot: timeString()
             }),
             shelly = new Intern(),
             boss = null;
@@ -98,7 +122,7 @@ describe('Related Models', function() {
                     this.last_name = ko.observable();
                     this.boss = ko.RelatedModel(Intern, {useCache: true, overwriteDestroys: true});
                 },
-                urlRoot: '/internse'
+                urlRoot: timeString()
             }),
             shelly = new Intern(),
             boss = null;
@@ -128,7 +152,7 @@ describe('Related Models', function() {
                     this.last_name = ko.observable();
                     this.boss = ko.RelatedModel(Intern, {useCache: true, overwriteDestroys: true});
                 },
-                urlRoot: '/internsf'
+                urlRoot: timeString()
             }),
             shelly = new Intern(),
             boss = null;
@@ -151,7 +175,8 @@ describe('Related Models', function() {
     });
 
     it('Should load when accessed (autoFetch === "onRead")', function () {
-        var Intern = ko.Model.extend({
+        var urlRoot = timeString(),
+            Intern = ko.Model.extend({
                 transientAttributes: ['boss'],
                 initialize: function () {
                     var self = this;
@@ -161,7 +186,7 @@ describe('Related Models', function() {
                     this.boss = ko.RelatedModel(Intern, {autoFetch: 'onRead'});
                 },
 
-                urlRoot: '/internsl'
+                urlRoot: urlRoot
             }),
             shelly = new Intern({id: 1});
 
@@ -169,14 +194,14 @@ describe('Related Models', function() {
         spyOn($, 'ajax').andCallFake(function(options) {
             setTimeout(function () {
                 expect(options.type).toEqual('GET');
-                if (options.url ==='/internsl/1') {
+                if (options.url === urlRoot + '/1') {
                     options.success({
                         id: 1,
                         first_name: "Shelly",
                         last_name: "Smith",
                         boss: 2
                     });
-                } else if  (options.url ==='/internsl/2') {
+                } else if  (options.url === urlRoot + '/2') {
                     options.success({
                         id: 2,
                         first_name: "Bob",
@@ -228,7 +253,7 @@ describe('Related Models', function() {
                     this.first_name = ko.observable();
                     this.last_name = ko.observable();
                 },
-                urlRoot: '/internsn'
+                urlRoot: timeString()
             }),
             flag = false,
             modelFactory = function(val, cb) { flag = true; return cb(Intern); },
@@ -251,6 +276,53 @@ describe('Related Models', function() {
             expect(relatedIntern().toJS()).toEqual({id: 1});
         });
     });
+
+    it('Should trigger deferred on load of model if a factory is passed', function () {
+        var Intern = ko.Model.extend({
+                initialize: function () {
+                    this.first_name = ko.observable();
+                    this.last_name = ko.observable();
+                },
+                urlRoot: timeString()
+            }),
+            flag = false,
+            modelFactory = function(val, cb) { cb(Intern); },
+            relatedIntern = ko.RelatedModel(modelFactory, {autoFetch: false});
+
+        runs(function() {
+            expect(relatedIntern()).toEqual(null);
+            expect(relatedIntern() instanceof Intern).toEqual(false);
+
+            // create an instance
+            ko.when(relatedIntern).then(
+                function modelLoaded(instance) {
+                    expect(instance.toJS()).toEqual({
+                        first_name: "William",
+                        last_name: "Wallace",
+                        id: 1
+                    });
+                    flag = true;
+                },
+                function errorLoadingModel(err) {
+                    expect(false).toEqual(true);
+                }
+            );
+
+            relatedIntern({id: 1, first_name:"William", last_name:"Wallace"})
+        });
+
+        waitsFor(function() {
+            return flag;
+        });
+
+        runs(function() {
+            expect(relatedIntern().toJS()).toEqual({
+                first_name: "William",
+                last_name: "Wallace",
+                id: 1
+            });
+        });
+    });
 });
 
 describe('RelatedArrays', function() {
@@ -260,7 +332,7 @@ describe('RelatedArrays', function() {
                     this.first_name = ko.observable();
                     this.last_name = ko.observable();
                 },
-                urlRoot: '/internsg'
+                urlRoot: timeString()
             }),
             interns = ko.RelatedArray(Intern);
 
@@ -283,7 +355,7 @@ describe('RelatedArrays', function() {
                     this.first_name = ko.observable();
                     this.last_name = ko.observable();
                 },
-                urlRoot: '/internsh'
+                urlRoot: timeString()
             }),
             interns = ko.RelatedArray(Intern);
 
@@ -306,7 +378,7 @@ describe('RelatedArrays', function() {
                     this.first_name = ko.observable();
                     this.last_name = ko.observable();
                 },
-                urlRoot: '/internsi'
+                urlRoot: timeString()
             }),
             interns = ko.RelatedArray(Intern);
 
@@ -323,7 +395,7 @@ describe('RelatedArrays', function() {
                     this.first_name = ko.observable();
                     this.last_name = ko.observable();
                 },
-                urlRoot: '/internsj'
+                urlRoot: timeString()
             }),
             interns = ko.RelatedArray(Intern);
 
@@ -347,7 +419,7 @@ describe('RelatedArrays', function() {
                     this.first_name = ko.observable();
                     this.last_name = ko.observable();
                 },
-                urlRoot: '/internsk'
+                urlRoot: timeString()
             }),
             interns = ko.RelatedArray(Intern);
 
@@ -367,12 +439,13 @@ describe('RelatedArrays', function() {
     });
 
     it('Should load when accessed (autoFetch === "onRead")', function () {
-        var Intern = ko.Model.extend({
+        var urlRoot = timeString(),
+            Intern = ko.Model.extend({
                 initialize: function () {
                     this.first_name = ko.observable();
                     this.last_name = ko.observable();
                 },
-                urlRoot: '/internsm'
+                urlRoot: urlRoot
             }),
             interns = ko.RelatedArray(Intern, {autoFetch: 'onRead'});
 
@@ -382,13 +455,13 @@ describe('RelatedArrays', function() {
         spyOn($, 'ajax').andCallFake(function(options) {
             setTimeout(function () {
                 expect(options.type).toEqual('GET');
-                if (options.url ==='/internsm/1') {
+                if (options.url === urlRoot + '/1') {
                     options.success({
                         id: 1,
                         first_name: "Shelly",
                         last_name: "Smith"
                     });
-                } else if  (options.url ==='/internsm/2') {
+                } else if  (options.url === urlRoot + '/2') {
                     options.success({
                         id: 2,
                         first_name: "Bob",

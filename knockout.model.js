@@ -667,6 +667,8 @@
         });
 
         related.model = model;
+        related.peek = value.peek.bind(value);
+        related.subscribe = value.subscribe.bind(value);
 
         return related;
     };
