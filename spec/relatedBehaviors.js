@@ -291,7 +291,7 @@ describe('Related Models', function() {
 
         runs(function() {
             expect(relatedIntern()).toEqual(null);
-            expect(relatedIntern() instanceof Intern).toEqual(false);
+            expect(ko.isinstance(relatedIntern(), Intern)).toEqual(false);
 
             // create an instance
             ko.when(relatedIntern).then(

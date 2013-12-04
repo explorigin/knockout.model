@@ -55,6 +55,21 @@
     // Shared empty constructor function to aid in prototype-chain creation.
     var ctor = function() {};
 
+    ko.isinstance = function (instance, cls) {
+        var proto_ptr = cls;
+
+        try {
+            while (!!proto_ptr) {
+                if (instance.prototype === proto_ptr.prototype) {
+                    return instance.prototype !== undefined;
+                }
+                proto_ptr = proto_ptr.__proto__;
+            }
+        } catch (e) {}
+
+        return instance instanceof cls;
+    };
+
     // Helper function to correctly set up the prototype chain, for subclasses.
     // Similar to `goog.inherits`, but uses a hash of prototype properties and
     // class properties to be extended.
@@ -143,7 +158,8 @@
     ko.Model = function(attributes, options) {
         var attrs = attributes || {},
             prop,
-            action;
+            action,
+            _onaccess;
 
         options = options || {};
 
@@ -173,7 +189,8 @@
 
         // Fill in defaults for any non-supplied properties
         for (prop in this.defaults) {
-            if (this.defaults.hasOwnProperty(prop) && [null, undefined].indexOf(attrs[prop]) !== -1) {
+            if (this.defaults.hasOwnProperty(prop) &&
+                (attrs[prop] === undefined || attrs[prop] === null)) {
                 attrs[prop] = this.defaults[prop];
             }
         }
@@ -188,16 +205,18 @@
         this.set(attrs, options);
 
         if (typeof options.autoFetch === 'string' && options.autoFetch.toLowerCase() === 'onread') {
+            _onaccess = function() {
+                if (this._lastFetched === null) {
+                    this.fetch(arguments);
+                }
+            }.bind(this);
+
             for (prop in this) {
                 if (!this.hasOwnProperty(prop) || !ko.isObservable(this[prop])) {
-                    continue
+                    continue;
                 }
 
-                this[prop] = this[prop].extend({_onaccess: function() {
-                    if (this._lastFetched === null) {
-                        this.fetch(arguments);
-                    }
-                }});
+                this[prop] = this[prop].extend({_onaccess: _onaccess});
             }
         }
     };
@@ -334,7 +353,7 @@
         _clone: function(args) {
             var i, temp, transientAttributes, attr, len, _ref, j, jLen, value,
                 _resolveSingleValue = function(value){
-                    if (value instanceof ko.Model) {
+                    if (ko.isinstance(value, ko.Model)) {
                         return value.url();
                     }
 
@@ -379,6 +398,9 @@
                         temp[i] = value;
                     } else if (typeof attr === 'object') {
                         temp[i] = _resolveSingleValue(attr);
+                    } else if (typeof attr === 'function' && !ko.isObservable(attr)) {
+                        // Just because it has a function, doesn't mean we should include it.
+                        delete temp[i];
                     }
                 }
             }
@@ -422,8 +444,7 @@
                     type: type,
                     dataType: 'json',
                     cache: false
-                },
-                xhr;
+                };
 
             if (!options.url) {
                 params.url = this.url();
@@ -438,8 +459,8 @@
                 params.processData = false;
             }
 
-            xhr = options.xhr = $.ajax(extend(params, options));
-            return xhr;
+            options.xhr = $.ajax(extend(params, options));
+            return options.xhr;
         },
 
         fetch: function(options) {
@@ -456,8 +477,6 @@
             success = options.success;
 
             options.success = function(resp) {
-                var i;
-
                 if (!model.set(model.parse(resp, options), options)) {
                     return false;
                 }
@@ -629,11 +648,11 @@
                     return instance;
                 }
 
-                if (val instanceof related.model) {
+                if (ko.isinstance(val, related.model)) {
                     url = val.url();
                 } else {
                     val = related.model.prototype.parse.call(related.model.prototype, val || {});
-                    url = related.model.prototype.url.call(related.model.prototype, val[related.model.prototype.idAttribute])
+                    url = related.model.prototype.url.call(related.model.prototype, val[related.model.prototype.idAttribute]);
                 }
 
                 if (options.useCache) {
@@ -647,7 +666,7 @@
                         instance.destroy();
                 }
 
-                if (val instanceof related.model) {
+                if (ko.isinstance(val, related.model)) {
                     instance = val;
                 } else if (cachedInstance) {
                     instance = cachedInstance;
@@ -660,7 +679,7 @@
 
                 setCache.call(instance);
 
-                return value(instance);
+                value(instance);
             },
             //deferEvaluation: true,  // this is actually causing lots of errors
             owner: this
@@ -690,7 +709,7 @@
         value.buildInstance = function buildInstance(obj) {
             var val, url, instance;
 
-            if (obj instanceof value.model) {
+            if (ko.isinstance(obj, value.model)) {
                 return obj;
             }
 
@@ -718,7 +737,7 @@
             var indexes,
                 id;
 
-            if (obj instanceof value.model) {
+            if (ko.isinstance(obj, value.model)) {
                 return _oldMethods.indexOf.call(value, obj);
             } else if (typeof obj === 'object') {
                 id = obj[value.model.__super__.idAttribute];
@@ -745,7 +764,7 @@
         value.remove = function remove(obj) {
             var id;
 
-            if (obj instanceof value.model || typeof obj === 'function') {
+            if (ko.isinstance(obj, value.model) || typeof obj === 'function') {
                 return _oldMethods.remove.call(value, obj);
             } else if (typeof obj === 'object') {
                 id = obj[value.model.__super__.idAttribute];
@@ -766,7 +785,7 @@
         value.destroy = function destroy(obj) {
             var id;
 
-            if (obj instanceof value.model || typeof obj === 'function') {
+            if (ko.isinstance(obj, value.model) || typeof obj === 'function') {
                 return _oldMethods.destroy.call(value, obj);
             } else if (typeof obj === 'object') {
                 id = obj[value.model.__super__.idAttribute];
@@ -787,7 +806,7 @@
         changeSubscription = value.subscribe(function(val) {
             var i = val.length, item;
             while (i--) {
-                if (!(val[i] instanceof value.model)) {
+                if (!(ko.isinstance(val[i], value.model))) {
                     item = value.buildInstance(val[i]);
                     if (options.autoFetch === true && item._lastFetched === null && item.get(value.model.prototype.idAttribute)) {
                         item.fetch()
