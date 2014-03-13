@@ -12,6 +12,7 @@
 }(function module($, ko) {
     var extend = ko.utils.extend,
         ESCAPED_HTML_RE = new RegExp("&[^\\s]*;"),
+        protoProperty = ko.observable.protoProperty,
         METHOD_MAP = {
             'create': 'POST',
             'update': 'PUT',
@@ -150,6 +151,9 @@
             };
 
         ko.utils.extend(proxy, target);
+        if (protoProperty && target[protoProperty]) {
+            proxy[protoProperty] = target[protoProperty];
+        }
 
         return proxy;
     };
