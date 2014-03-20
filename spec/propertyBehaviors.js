@@ -162,4 +162,18 @@ describe('Properties', function() {
         expect(bob.get('first_name')).toEqual('Bob');
         expect(bob.get('last_name')).toEqual('Smith');
     });
+
+    it('Should be fully emulated by _onaccess', function () {
+        var a = ko.observable(0),
+            b = ko.observable(5).extend({_onaccess: function() { a(a()+1); }}),
+            prop;
+
+        expect(a()).toEqual(0);
+        expect(b()).toEqual(5);
+        expect(a()).toEqual(1);
+
+        for (prop in a) {
+            expect(b[prop]).toNotEqual(undefined);
+        }
+    });
 });

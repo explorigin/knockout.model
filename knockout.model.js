@@ -150,9 +150,10 @@
                 return target.apply(this, arguments);
             };
 
-        ko.utils.extend(proxy, target);
-        if (protoProperty && target[protoProperty]) {
-            proxy[protoProperty] = target[protoProperty];
+        for (var prop in target) {
+            if (!proxy.hasOwnProperty(prop)) {
+                proxy[prop] = target[prop];
+            }
         }
 
         return proxy;
