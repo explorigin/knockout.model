@@ -11,7 +11,7 @@
     }
 }(function module($, ko) {
     var extend = ko.utils.extend,
-        ESCAPED_HTML_RE = new RegExp("&[^\\s]*;"),
+        ESCAPED_HTML_RE = new RegExp("&[^\\s]+;"),
         protoProperty = ko.observable.protoProperty,
         METHOD_MAP = {
             'create': 'POST',
@@ -133,6 +133,9 @@
         set: function(key, instance) {
             this.cache[key] = instance;
             return instance;
+        },
+        remove: function(key) {
+            return delete this.cache[key];
         }
     };
 
@@ -214,7 +217,7 @@
                 if (this._lastFetched === null) {
                     this.fetch(arguments);
                 }
-            }.bind(this);
+            };
 
             for (prop in this) {
                 if (!this.hasOwnProperty(prop) || !ko.isObservable(this[prop])) {
@@ -257,12 +260,12 @@
                 item = attrs[i];
                 slot = this[i];
                 if (ko.isWriteableObservable(slot)) {
-                    new_value = typeof item === "string" && item.match(ESCAPED_HTML_RE) !== false ? unescapeHtml(item) : item;
+                    new_value = typeof item === "string" && item.match(ESCAPED_HTML_RE) ? unescapeHtml(item) : item;
                     if (new_value !== this[i]()) {
                         this[i](new_value);
                     }
                 } else if (slot !== undefined && ko.isObservable(slot) === false && typeof slot !== 'function') {
-                    new_value = typeof item === "string" && item.match(ESCAPED_HTML_RE) !== false ? unescapeHtml(item) : item;
+                    new_value = typeof item === "string" && item.match(ESCAPED_HTML_RE) ? unescapeHtml(item) : item;
                     this[i] = new_value;
                 } else {
                     try {
@@ -342,7 +345,12 @@
         isNew: function() {
             var value;
             value = this.get(this.idAttribute);
-            return [undefined, null, '', NaN].indexOf(value) !== -1;
+            return (!value && value !== 0);
+        },
+
+        // mark this instance as already up-to-date with the server
+        markFetched: function() {
+            this._lastFetched = new Date();
         },
 
         // Override this to perform validation.
@@ -488,7 +496,7 @@
 
                 setCache.call(model);
 
-                model._lastFetched = new Date();
+                model.markFetched();
                 if (success) {
                     success.call(model, resp, options);
                 }
@@ -559,6 +567,10 @@
                     }
                 });
             });
+
+            try {
+                ko.instanceCache.remove(this.url())
+            } catch (e) {}
 
             this._destroy = true;
         },
@@ -637,6 +649,7 @@
 
         options = options || {};
         options.useCache = options.useCache === undefined ? true : options.useCache;
+        options.nullable = options.nullable === undefined ? true : options.nullable;
 
         related = ko.computed({
             read: value,
@@ -656,11 +669,19 @@
                 if (ko.isinstance(val, related.model)) {
                     url = val.url();
                 } else {
-                    val = related.model.prototype.parse.call(related.model.prototype, val || {});
-                    url = related.model.prototype.url.call(related.model.prototype, val[related.model.prototype.idAttribute]);
+                    if (!val && !options.nullable) {
+                        val = {}
+                    }
+                    val = related.model.prototype.parse.call(related.model.prototype, val);
+
+                    if (val !== null) {
+                        url = related.model.prototype.url.call(related.model.prototype, val[related.model.prototype.idAttribute]);
+                    } else {
+                        url = null;
+                    }
                 }
 
-                if (options.useCache) {
+                if (options.useCache && url) {
                     cachedInstance = ko.instanceCache.get(url);
                 }
 
@@ -675,6 +696,8 @@
                     instance = val;
                 } else if (cachedInstance) {
                     instance = cachedInstance;
+                } else if (val === null && options.nullable) {
+                    instance = null;
                 } else {
                     instance = new related.model(val, options);
                     if (options.autoFetch === true && instance._lastFetched === null && !instance.isNew()) {
@@ -682,7 +705,9 @@
                     }
                 }
 
-                setCache.call(instance);
+                if (instance) {
+                    setCache.call(instance);
+                }
 
                 value(instance);
             },
@@ -814,7 +839,7 @@
                 if (!(ko.isinstance(val[i], value.model))) {
                     item = value.buildInstance(val[i]);
                     if (options.autoFetch === true && item._lastFetched === null && item.get(value.model.prototype.idAttribute)) {
-                        item.fetch()
+                        item.fetch();
                     }
                     val[i] = item;
                 }
