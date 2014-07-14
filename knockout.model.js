@@ -175,6 +175,7 @@
             fetching: false,
             options: options,
             backupValues: {},
+            backupJS: {},
             attrSubscriberCache: {},
             attrSubscriptions: [],
             subscriptions: {
@@ -351,6 +352,15 @@
         // mark this instance as already up-to-date with the server
         markFetched: function() {
             this._lastFetched = new Date();
+        },
+
+        // Determine if this version was saved
+        isDirty: function() {
+            return this.toJSON() !== this._internals.backupJSON;
+        },
+
+        backupJSON: function() {
+            return this._internals.backupJSON = this.toJSON();
         },
 
         // Override this to perform validation.
